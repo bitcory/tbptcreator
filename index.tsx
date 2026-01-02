@@ -607,21 +607,7 @@ const App = () => {
              <Upload className="w-3.5 h-3.5" />
              업로드
            </button>
-           <button
-             onClick={() => setIsApiInfoOpen(true)}
-             className={`memphis-btn p-2 rounded-full relative ${userApiKey ? 'memphis-btn-cyan' : ''}`}
-             title="API 연결 정보"
-           >
-             <Cpu className="w-5 h-5" />
-             {(process.env.API_KEY || userApiKey) && (
-               <span className="absolute top-0 right-0 w-3 h-3 bg-[#00D4AA] rounded-full border-2 border-[#1A1A2E]"></span>
-             )}
-           </button>
-          <div className="hidden sm:flex items-center gap-1 bg-[#9B5DE5] border-3 border-[#1A1A2E] px-3 py-1 rounded-full text-xs font-bold text-white shadow-[3px_3px_0_#1A1A2E]">
-            <Circle className="w-2 h-2 fill-current" />
-            v2.2
-          </div>
-        </div>
+                   </div>
       </header>
 
       {/* Main Content */}
@@ -651,15 +637,15 @@ const App = () => {
               rel="noreferrer"
               className="group relative flex items-center justify-center gap-2.5 w-full px-4 py-3.5 bg-[#00D4AA] hover:bg-[#4ECDC4] text-[#1A1A2E] text-sm font-bold rounded-xl border-4 border-[#1A1A2E] shadow-[5px_5px_0_#1A1A2E] hover:shadow-[7px_7px_0_#1A1A2E] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all duration-200 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0_#1A1A2E]"
             >
-              <Wand2 className="w-4.5 h-4.5 group-hover:rotate-12 transition-transform duration-200" />
-              <span>프롬프트 만들기</span>
+              <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200" />
+              <span className="text-base">프롬프트 만들기</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
 
           <div className="p-3 md:p-4 border-b-4 border-[#1A1A2E] bg-[#FEFEFE]">
-            <h2 className="font-bold text-sm text-[#1A1A2E] flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#9B5DE5]" />
+            <h2 className="font-bold text-base text-[#1A1A2E] flex items-center gap-2">
+              <Layers className="w-5 h-5 text-[#9B5DE5]" />
               구조 (Structure)
               <div className="w-3 h-3 bg-[#FF6B9D] border-2 border-[#1A1A2E] rounded-full ml-auto" />
             </h2>
@@ -670,14 +656,13 @@ const App = () => {
               <div key={section.section_id} className="memphis-card rounded-xl overflow-hidden">
                 <button
                   onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
-                  className={`w-full px-3 py-2 flex items-center gap-2 text-sm font-bold text-[#1A1A2E] hover:bg-[#FFE156]/30 transition-colors ${
+                  className={`w-full px-3 py-2.5 flex items-center gap-2 text-base font-bold text-[#1A1A2E] hover:bg-[#FFE156]/30 transition-colors ${
                     idx % 4 === 0 ? 'bg-[#FFE156]/20' :
                     idx % 4 === 1 ? 'bg-[#FF6B9D]/20' :
                     idx % 4 === 2 ? 'bg-[#4ECDC4]/20' : 'bg-[#9B5DE5]/20'
                   }`}
                 >
-                  {expandedSection === section.section_id ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                  <Settings className="w-3.5 h-3.5" />
+                  {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
                   {(section.is_active !== false) && <div className="w-3 h-3 rounded-full bg-[#00D4AA] border-2 border-[#1A1A2E]"></div>}
                 </button>
@@ -752,16 +737,16 @@ const App = () => {
           {/* Middle: Tab Content */}
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mb-3">
-              <div className="flex gap-1 bg-[#FEFEFE] p-1 rounded-xl border-3 border-[#1A1A2E] shadow-[4px_4px_0_#1A1A2E] w-full sm:w-auto">
+              <div className="flex gap-1 bg-[#FEFEFE] p-1.5 rounded-xl border-4 border-[#1A1A2E] shadow-[4px_4px_0_#1A1A2E] w-full sm:w-auto">
                 <button
                   onClick={() => setActiveTab('preview')}
-                  className={`flex-1 sm:flex-none px-3 md:px-4 py-2 md:py-1.5 text-xs font-bold rounded-lg transition-all duration-100 ${activeTab === 'preview' ? 'bg-[#FFE156] text-[#1A1A2E] shadow-[2px_2px_0_#1A1A2E]' : 'text-[#1A1A2E]/60 hover:bg-[#FFE156]/30'}`}
+                  className={`flex-1 sm:flex-none px-6 md:px-8 py-2.5 md:py-2 text-sm md:text-base font-bold rounded-lg transition-all duration-100 border-2 border-[#1A1A2E] ${activeTab === 'preview' ? 'bg-[#FFE156] text-[#1A1A2E] shadow-[2px_2px_0_#1A1A2E]' : 'text-[#1A1A2E]/60 hover:bg-[#FFE156]/30 border-[#1A1A2E]/30'}`}
                 >
                   시각적 편집
                 </button>
                 <button
                   onClick={() => setActiveTab('prompt')}
-                  className={`flex-1 sm:flex-none px-3 md:px-4 py-2 md:py-1.5 text-xs font-bold rounded-lg transition-all duration-100 ${activeTab === 'prompt' ? 'bg-[#4ECDC4] text-[#1A1A2E] shadow-[2px_2px_0_#1A1A2E]' : 'text-[#1A1A2E]/60 hover:bg-[#4ECDC4]/30'}`}
+                  className={`flex-1 sm:flex-none px-6 md:px-8 py-2.5 md:py-2 text-sm md:text-base font-bold rounded-lg transition-all duration-100 border-2 border-[#1A1A2E] ${activeTab === 'prompt' ? 'bg-[#4ECDC4] text-[#1A1A2E] shadow-[2px_2px_0_#1A1A2E]' : 'text-[#1A1A2E]/60 hover:bg-[#4ECDC4]/30 border-[#1A1A2E]/30'}`}
                 >
                   최종 프롬프트
                 </button>
