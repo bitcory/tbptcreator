@@ -720,10 +720,10 @@ const App = () => {
               href="https://translate.google.co.kr/"
               target="_blank"
               rel="noreferrer"
-              className="memphis-btn memphis-btn-purple flex items-center justify-center gap-2 w-full px-4 py-2.5 md:py-2 text-xs rounded-lg"
+              className="memphis-btn memphis-btn-purple flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-bold rounded-lg"
               title="새 탭에서 구글 번역기 열기"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-4 h-4" />
               Google 번역기 열기
             </a>
           </div>
@@ -754,9 +754,9 @@ const App = () => {
               <div className="flex gap-2">
                  <button
                   onClick={() => copyToClipboard(promptString)}
-                  className="memphis-btn text-xs flex items-center justify-center gap-1.5 px-3 py-2 md:py-1.5 rounded-lg w-full sm:w-auto"
+                  className="memphis-btn text-sm md:text-base font-bold flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg w-full sm:w-auto"
                 >
-                  <Copy className="w-3.5 h-3.5" /> Prompt 복사
+                  <Copy className="w-4 h-4" /> Prompt 복사
                 </button>
               </div>
             </div>
@@ -806,11 +806,14 @@ const App = () => {
                                  <div key={attr.attr_id} className="memphis-card bg-white p-3 md:p-4 rounded-xl flex flex-col gap-2 md:gap-3">
                                    {/* Attribute Header */}
                                    <div className="flex items-center justify-between gap-2">
-                                     <label className="text-xs md:text-sm font-bold text-[#1A1A2E] flex items-center gap-2 truncate">
-                                       <Triangle className="w-3 h-3 text-[#FF6B9D] fill-current" />
-                                       {attr.label_ko || attr.label}
-                                       {(attr.is_active === false) && <span className="text-[10px] text-[#FF6B9D] font-bold">(Inactive)</span>}
-                                     </label>
+                                     <div className="flex items-center gap-2">
+                                       <label className="text-sm md:text-base font-bold text-[#1A1A2E] flex items-center gap-2 truncate">
+                                         <Triangle className="w-3 h-3 text-[#FF6B9D] fill-current" />
+                                         {attr.label_ko || attr.label}
+                                         {(attr.is_active === false) && <span className="text-[10px] text-[#FF6B9D] font-bold">(Inactive)</span>}
+                                       </label>
+                                       <CopyButton value={getDisplayValue(attr, attr.value)} />
+                                     </div>
                                      <div className="flex items-center gap-1 shrink-0">
                                        <ClearButton onClear={() => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, "")} />
                                        <CopyButton value={Array.isArray(attr.value) ? attr.value.join(', ') : String(attr.value)} />
@@ -818,29 +821,24 @@ const App = () => {
                                    </div>
 
                                    {/* Split Layout */}
-                                   <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-start">
+                                   <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch">
                                      {/* Left: Current Value */}
-                                     <div className="w-full md:w-[30%] md:border-r-3 border-[#1A1A2E] md:pr-3 pb-2 md:pb-0 md:pt-2 flex flex-col gap-2 border-b-3 md:border-b-0">
-                                       <div className="text-xs md:text-sm text-[#1A1A2E]/70 break-words leading-relaxed bg-[#FFE156]/20 p-2 rounded-lg border-2 border-[#1A1A2E]/30" title={String(attr.value)}>
+                                     <div className="w-full md:w-[40%]">
+                                       <div className="text-sm md:text-base text-[#1A1A2E] break-words leading-relaxed bg-[#FFE156]/20 p-3 rounded-lg border-2 border-[#1A1A2E]/30 font-medium h-full" title={String(attr.value)}>
                                          {getDisplayValue(attr, attr.value)}
-                                       </div>
-                                       <div className="self-end">
-                                          <CopyButton value={getDisplayValue(attr, attr.value)} />
                                        </div>
                                      </div>
 
                                      {/* Right: Edit Field */}
                                      <div className="flex-1 min-w-0">
-                                       <div className="relative">
-                                         <input
-                                           list={attr.options ? `datalist-${attr.attr_id}` : undefined}
-                                           type="text"
-                                           placeholder="영문 값 입력..."
-                                           className="memphis-input w-full text-sm p-2.5 md:p-2.5 rounded-lg text-[#1A1A2E] placeholder:text-[#1A1A2E]/40 font-medium"
-                                           value={Array.isArray(attr.value) ? attr.value.join(', ') : attr.value}
-                                           onChange={(e) => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, e.target.value)}
-                                         />
-                                       </div>
+                                       <input
+                                         list={attr.options ? `datalist-${attr.attr_id}` : undefined}
+                                         type="text"
+                                         placeholder="영문 값 입력..."
+                                         className="memphis-input w-full h-full text-sm md:text-base p-3 rounded-lg text-[#1A1A2E] placeholder:text-[#1A1A2E]/40 font-medium"
+                                         value={Array.isArray(attr.value) ? attr.value.join(', ') : attr.value}
+                                         onChange={(e) => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, e.target.value)}
+                                       />
 
                                        {attr.options && (
                                          <datalist id={`datalist-${attr.attr_id}`}>
