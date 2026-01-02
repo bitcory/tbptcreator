@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-HairLine.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+:root {
+  --memphis-pink: #FF6B9D;
+  --memphis-yellow: #FFE156;
+  --memphis-cyan: #00D4AA;
+  --memphis-blue: #4ECDC4;
+  --memphis-purple: #9B5DE5;
+  --memphis-orange: #FF9F1C;
+  --memphis-red: #F15BB5;
+  --memphis-black: #1A1A2E;
+  --memphis-white: #FEFEFE;
+}
+
+body {
+  background-color: var(--memphis-white);
+  color: var(--memphis-black);
+  font-family: 'Arita Buri', sans-serif;
+}
+
+/* Memphis Pattern Background */
+.memphis-bg {
+  background-color: var(--memphis-white);
+  background-image:
+    radial-gradient(circle at 20% 80%, var(--memphis-pink) 3px, transparent 3px),
+    radial-gradient(circle at 80% 20%, var(--memphis-cyan) 4px, transparent 4px),
+    radial-gradient(circle at 40% 40%, var(--memphis-yellow) 2px, transparent 2px),
+    radial-gradient(circle at 60% 70%, var(--memphis-purple) 3px, transparent 3px),
+    radial-gradient(circle at 90% 90%, var(--memphis-orange) 2px, transparent 2px),
+    radial-gradient(circle at 10% 30%, var(--memphis-blue) 4px, transparent 4px);
+  background-size: 100px 100px;
+}
+
+/* Memphis Card Style */
+.memphis-card {
+  background: var(--memphis-white);
+  border: 3px solid var(--memphis-black);
+  box-shadow: 6px 6px 0 var(--memphis-black);
+  transition: all 0.2s ease;
+}
+
+.memphis-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--memphis-black);
+}
+
+/* Memphis Button */
+.memphis-btn {
+  background: var(--memphis-yellow);
+  border: 3px solid var(--memphis-black);
+  box-shadow: 4px 4px 0 var(--memphis-black);
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.memphis-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--memphis-black);
+}
+
+.memphis-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--memphis-black);
+}
+
+.memphis-btn-pink {
+  background: var(--memphis-pink);
+  color: white;
+}
+
+.memphis-btn-cyan {
+  background: var(--memphis-cyan);
+}
+
+.memphis-btn-purple {
+  background: var(--memphis-purple);
+  color: white;
+}
+
+/* Memphis Input */
+.memphis-input {
+  background: var(--memphis-white);
+  border: 3px solid var(--memphis-black);
+  box-shadow: 4px 4px 0 var(--memphis-black);
+}
+
+.memphis-input:focus {
+  outline: none;
+  box-shadow: 6px 6px 0 var(--memphis-cyan);
+  border-color: var(--memphis-cyan);
+}
+
+/* Memphis Sidebar */
+.memphis-sidebar {
+  background: linear-gradient(180deg, #FFE156 0%, #FF6B9D 50%, #4ECDC4 100%);
+  border-right: 4px solid var(--memphis-black);
+}
+
+/* Memphis Header */
+.memphis-header {
+  background: var(--memphis-yellow);
+  border-bottom: 4px solid var(--memphis-black);
+}
+
+/* Memphis Section */
+.memphis-section {
+  background: var(--memphis-white);
+  border: 3px solid var(--memphis-black);
+  position: relative;
+}
+
+.memphis-section::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 20px;
+  width: 16px;
+  height: 16px;
+  background: var(--memphis-pink);
+  border: 2px solid var(--memphis-black);
+  border-radius: 50%;
+}
+
+.memphis-section::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 30px;
+  width: 12px;
+  height: 12px;
+  background: var(--memphis-cyan);
+  border: 2px solid var(--memphis-black);
+  transform: rotate(45deg);
+}
+
+/* Zigzag border */
+.zigzag-border {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--memphis-black) 0px,
+    var(--memphis-black) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  height: 4px;
+}
+
+/* Dotted pattern */
+.dotted-pattern {
+  background-image: radial-gradient(var(--memphis-black) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+/* Scrollbar styling for Memphis */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--memphis-yellow);
+  border-left: 3px solid var(--memphis-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--memphis-pink);
+  border: 2px solid var(--memphis-black);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--memphis-purple);
+}
+
+/* Animation */
+@keyframes memphis-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.memphis-float {
+  animation: memphis-float 3s ease-in-out infinite;
+}
