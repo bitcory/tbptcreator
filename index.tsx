@@ -632,7 +632,7 @@ const App = () => {
           {/* 프롬프트 만들기 버튼 */}
           <div className="p-3 md:p-4 border-b-4 border-[#1A1A2E] bg-[#FEFEFE]">
             <a
-              href="https://gemini.google.com/gem/05bbd982ce46?usp=sharing"
+              href="https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
               target="_blank"
               rel="noreferrer"
               className="group relative flex items-center justify-center gap-2.5 w-full px-4 py-3.5 bg-[#00D4AA] hover:bg-[#4ECDC4] text-[#1A1A2E] text-sm font-bold rounded-xl border-4 border-[#1A1A2E] shadow-[5px_5px_0_#1A1A2E] hover:shadow-[7px_7px_0_#1A1A2E] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all duration-200 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0_#1A1A2E]"
