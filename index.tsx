@@ -459,8 +459,6 @@ const App = () => {
   const [uploadInput, setUploadInput] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploadLoading, setIsUploadLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'prompt' | 'preview'>('preview');
-
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
@@ -522,7 +520,6 @@ const App = () => {
       setUploadInput("");
 
       setIsSidebarOpen(false);
-      setActiveTab('preview');
 
       setExpandedSection(null);
     } catch (e: any) {
@@ -703,46 +700,38 @@ const App = () => {
           {/* Decorative corner shapes */}
           <div className="absolute top-4 right-4 w-6 h-6 bg-[#FF6B9D] border-2 border-[#1A1A2E] rotate-45 z-10" />
 
-          {/* Middle: Tab Content */}
-          <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mb-3">
-              <div className="flex gap-1 bg-[#FEFEFE] p-1.5 rounded-xl border-4 border-[#1A1A2E] shadow-[4px_4px_0_#1A1A2E] w-full sm:w-auto">
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`flex-1 sm:flex-none px-6 md:px-8 py-2.5 md:py-2 text-sm md:text-base font-bold rounded-lg transition-all duration-100 border-2 border-[#1A1A2E] ${activeTab === 'preview' ? 'bg-[#FFE156] text-[#1A1A2E] shadow-[2px_2px_0_#1A1A2E]' : 'text-[#1A1A2E]/60 hover:bg-[#FFE156]/30 border-[#1A1A2E]/30'}`}
-                >
-                  시각적 편집
-                </button>
-                <button
-                  onClick={() => setActiveTab('prompt')}
-                  className={`flex-1 sm:flex-none px-6 md:px-8 py-2.5 md:py-2 text-sm md:text-base font-bold rounded-lg transition-all duration-100 border-2 border-[#1A1A2E] ${activeTab === 'prompt' ? 'bg-[#4ECDC4] text-[#1A1A2E] shadow-[2px_2px_0_#1A1A2E]' : 'text-[#1A1A2E]/60 hover:bg-[#4ECDC4]/30 border-[#1A1A2E]/30'}`}
-                >
+          {/* Middle: Prompt Output + Visual Editor */}
+          <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
+            {/* 최종 프롬프트 영역 */}
+            <div className="shrink-0 memphis-card rounded-xl overflow-hidden p-3 md:p-4 bg-[#4ECDC4]/10">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b-3 border-[#1A1A2E]">
+                <h3 className="text-base md:text-lg font-bold text-[#1A1A2E] flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full border-2 border-[#1A1A2E] bg-[#4ECDC4]"></span>
                   최종 프롬프트
-                </button>
-              </div>
-              <div className="flex gap-2">
-                 <button
+                </h3>
+                <button
                   onClick={() => copyToClipboard(promptString)}
-                  className="memphis-btn text-sm md:text-base font-bold flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg w-full sm:w-auto"
+                  className="memphis-btn text-sm font-bold flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg"
                 >
-                  <Copy className="w-4 h-4" /> Prompt 복사
+                  <Copy className="w-3.5 h-3.5" /> 복사
                 </button>
               </div>
-            </div>
-
-            <div className="flex-1 memphis-card rounded-xl overflow-hidden relative">
-              {activeTab === 'prompt' ? (
+              <div className="memphis-card rounded-xl overflow-hidden">
                 <textarea
                   value={promptString}
                   readOnly
-                  className="w-full h-full p-4 md:p-6 bg-[#1A1A2E] font-mono text-xs md:text-sm text-[#00D4AA] resize-none outline-none leading-relaxed selection:bg-[#9B5DE5]/50"
+                  className="w-full h-28 md:h-36 p-3 md:p-4 bg-white font-mono text-xs md:text-sm text-[#1A1A2E] resize-none outline-none leading-relaxed selection:bg-[#FFE156]/50 border-2 border-[#1A1A2E]"
                   spellCheck={false}
                   placeholder="생성된 프롬프트가 없습니다..."
                 />
-              ) : (
-                <div className="h-full overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-8 bg-[#FEFEFE]">
-                  {/* Visual Preview */}
-                  {(template.prompt_sections || []).map((section, sectionIdx) => (
+              </div>
+            </div>
+
+            {/* 시각적 편집 영역 */}
+            <div className="flex-1 memphis-card rounded-xl overflow-hidden min-h-0">
+              <div className="h-full overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-8 bg-[#FEFEFE]">
+                {/* Visual Preview */}
+                {(template.prompt_sections || []).map((section, sectionIdx) => (
                     <div key={section.section_id} className={`memphis-section space-y-3 md:space-y-4 p-3 md:p-5 rounded-xl mt-4 ${
                       sectionIdx % 4 === 0 ? 'bg-[#FFE156]/10' :
                       sectionIdx % 4 === 1 ? 'bg-[#FF6B9D]/10' :
@@ -829,10 +818,8 @@ const App = () => {
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-
         </main>
       </div>
 
