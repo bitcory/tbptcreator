@@ -719,7 +719,7 @@ const App = () => {
               <textarea
                 value={promptString}
                 readOnly
-                className="w-full h-28 md:h-36 p-3 md:p-4 bg-white font-mono text-xs md:text-sm text-[#1A1A2E] resize-none outline-none leading-relaxed selection:bg-[#FFE156]/50 border border-[#1A1A2E]/30 rounded-xl overflow-hidden"
+                className="w-full h-28 md:h-36 p-3 md:p-4 bg-white font-mono text-xs md:text-sm text-[#1A1A2E] resize-none outline-none leading-relaxed selection:bg-[#FFE156]/50 border-2 border-[#1A1A2E] rounded-xl overflow-hidden"
                 spellCheck={false}
                 placeholder="생성된 프롬프트가 없습니다..."
               />
