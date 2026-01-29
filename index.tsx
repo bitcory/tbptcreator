@@ -703,7 +703,7 @@ const App = () => {
           {/* Middle: Prompt Output + Visual Editor */}
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
             {/* 최종 프롬프트 영역 */}
-            <div className="shrink-0 memphis-card rounded-xl overflow-hidden p-3 md:p-4 bg-[#4ECDC4]/10">
+            <div className="shrink-0 memphis-card rounded-xl p-3 md:p-4 bg-[#4ECDC4]/10">
               <div className="flex items-center justify-between mb-3 pb-2 border-b-3 border-[#1A1A2E]">
                 <h3 className="text-base md:text-lg font-bold text-[#1A1A2E] flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full border-2 border-[#1A1A2E] bg-[#4ECDC4]"></span>
@@ -716,15 +716,13 @@ const App = () => {
                   <Copy className="w-3.5 h-3.5" /> 복사
                 </button>
               </div>
-              <div className="memphis-card rounded-xl overflow-hidden">
-                <textarea
-                  value={promptString}
-                  readOnly
-                  className="w-full h-28 md:h-36 p-3 md:p-4 bg-white font-mono text-xs md:text-sm text-[#1A1A2E] resize-none outline-none leading-relaxed selection:bg-[#FFE156]/50 border-2 border-[#1A1A2E]"
-                  spellCheck={false}
-                  placeholder="생성된 프롬프트가 없습니다..."
-                />
-              </div>
+              <textarea
+                value={promptString}
+                readOnly
+                className="w-full h-28 md:h-36 p-3 md:p-4 bg-white font-mono text-xs md:text-sm text-[#1A1A2E] resize-none outline-none leading-relaxed selection:bg-[#FFE156]/50 border border-[#1A1A2E]/30 rounded-xl overflow-hidden"
+                spellCheck={false}
+                placeholder="생성된 프롬프트가 없습니다..."
+              />
             </div>
 
             {/* 시각적 편집 영역 */}

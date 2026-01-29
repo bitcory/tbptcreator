@@ -171,7 +171,14 @@ body {
 .memphis-section {
   background: var(--memphis-white);
   border: 3px solid var(--memphis-black);
+  box-shadow: 4px 4px 0 var(--memphis-black);
   position: relative;
+  transition: all 0.2s ease;
+}
+
+.memphis-section:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--memphis-black);
 }
 
 .memphis-section::before {
