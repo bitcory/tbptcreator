@@ -461,11 +461,7 @@ const App = () => {
   const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'prompt' | 'preview'>('preview');
 
-  const [isTranslatorOpen, setIsTranslatorOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [transInput, setTransInput] = useState("");
-  const [transOutput, setTransOutput] = useState("");
-  const [isTransLoading, setIsTransLoading] = useState(false);
 
   useEffect(() => {
     const str = generatePromptString(template);
@@ -483,33 +479,6 @@ const App = () => {
         setTemplate(newTemplate);
       }
     } catch (err) { console.error("Error updating attribute:", err); }
-  };
-
-  const handleQuickTranslation = async () => {
-    if (!transInput.trim()) return;
-    setIsTransLoading(true);
-    setTransOutput("");
-
-    try {
-      const apiKey = userApiKey || process.env.API_KEY || '';
-      if (!apiKey) {
-        alert("API 키를 입력해주세요. (우측 상단 버튼 클릭)");
-        setIsTransLoading(false);
-        return;
-      }
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Translate the following text. If it's Korean, translate to English. If it's English, translate to Korean. Only output the translated text.\n\nText: ${transInput}`
-      });
-      setTransOutput(response.text?.trim() || "Translation failed.");
-    } catch (error) {
-      console.error(error);
-      setTransOutput("Error occurred during translation. Check API Key.");
-    } finally {
-      setIsTransLoading(false);
-    }
   };
 
   const handleUpload = () => {
@@ -680,7 +649,7 @@ const App = () => {
                           }
                           setIsSidebarOpen(false);
                         }}
-                        className="pl-2 flex items-center gap-2 text-xs text-[#1A1A2E]/70 py-1.5 md:py-1 hover:bg-[#FFE156]/30 hover:text-[#1A1A2E] rounded-lg cursor-pointer transition-colors font-medium"
+                        className="pl-2 flex items-center gap-2 text-sm text-[#1A1A2E]/70 py-1.5 md:py-1 hover:bg-[#FFE156]/30 hover:text-[#1A1A2E] rounded-lg cursor-pointer transition-colors font-medium"
                       >
                         <Box className="w-3 h-3 text-[#9B5DE5]" />
                         <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
@@ -864,79 +833,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Bottom: Quick Translator */}
-          <div className="border-t-4 border-[#1A1A2E] bg-[#FEFEFE] shrink-0">
-             <button
-               onClick={() => setIsTranslatorOpen(!isTranslatorOpen)}
-               className="w-full flex items-center justify-between px-3 md:px-6 py-2 bg-[#9B5DE5] hover:bg-[#9B5DE5]/80 text-xs text-white border-b-4 border-[#1A1A2E] transition-colors font-bold"
-             >
-               <div className="flex items-center gap-2">
-                 <Languages className="w-4 h-4" />
-                 <span>AI 퀵 번역기</span>
-                 <div className="w-2 h-2 bg-[#00D4AA] rounded-full border border-white" />
-               </div>
-               <div className="flex items-center gap-2">
-                 {isTranslatorOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-               </div>
-             </button>
-
-             {isTranslatorOpen && (
-               <div className="p-3 md:p-4 flex flex-col md:flex-row gap-2 md:gap-3 h-auto md:h-48 bg-[#FEFEFE]">
-                  <div className="flex-1 flex flex-col gap-1 md:gap-2">
-                     <div className="flex justify-between items-center text-xs text-[#1A1A2E]/70 px-1 font-bold">
-                        <span>입력</span>
-                        <a href="https://translate.google.co.kr/?sl=auto&tl=en&op=translate" target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-[#9B5DE5] transition-colors">
-                           <ExternalLink className="w-3 h-3" /> <span className="hidden sm:inline">구글 번역기</span>
-                        </a>
-                     </div>
-                     <textarea
-                       className="memphis-input flex-1 min-h-[80px] md:min-h-0 rounded-lg p-2.5 md:p-3 text-sm text-[#1A1A2E] resize-none"
-                       placeholder="번역할 텍스트..."
-                       value={transInput}
-                       onChange={(e) => setTransInput(e.target.value)}
-                       onKeyDown={(e) => {
-                         if(e.key === 'Enter' && !e.shiftKey) {
-                           e.preventDefault();
-                           handleQuickTranslation();
-                         }
-                       }}
-                     />
-                  </div>
-                  <div className="flex flex-row md:flex-col justify-center gap-2 py-1 md:py-0">
-                     <button
-                       onClick={handleQuickTranslation}
-                       disabled={isTransLoading || !transInput.trim()}
-                       className="memphis-btn memphis-btn-cyan flex-1 md:flex-none p-2.5 md:p-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-                       title="번역하기"
-                     >
-                       {isTransLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                       <span className="md:hidden text-xs font-bold">번역</span>
-                     </button>
-                     <button
-                        onClick={() => {
-                            const temp = transInput;
-                            setTransInput(transOutput);
-                            setTransOutput(temp);
-                        }}
-                        className="memphis-btn flex-1 md:flex-none p-2.5 md:p-3 rounded-xl flex items-center justify-center gap-2"
-                        title="입력/결과 바꾸기 (Swap)"
-                     >
-                        <ArrowRightLeft className="w-5 h-5" />
-                        <span className="md:hidden text-xs font-bold">바꾸기</span>
-                     </button>
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1 md:gap-2">
-                     <span className="text-xs text-[#1A1A2E]/70 px-1 font-bold">결과</span>
-                     <textarea
-                       readOnly
-                       className="flex-1 min-h-[80px] md:min-h-0 bg-[#00D4AA]/20 border-3 border-[#1A1A2E] rounded-lg p-2.5 md:p-3 text-sm text-[#1A1A2E] resize-none outline-none shadow-[4px_4px_0_#1A1A2E]"
-                       placeholder="번역 결과..."
-                       value={transOutput}
-                     />
-                  </div>
-               </div>
-             )}
-          </div>
         </main>
       </div>
 
