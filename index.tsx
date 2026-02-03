@@ -567,11 +567,11 @@ const App = () => {
         <div className="flex items-center gap-1 md:gap-2">
            <button
              onClick={() => setIsUploadModalOpen(true)}
-             className="memphis-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
+             className="memphis-btn memphis-btn-pink flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white shadow-[5px_5px_0_#1A1A2E] hover:shadow-[7px_7px_0_#1A1A2E]"
              title="JSON 템플릿 업로드"
            >
-             <Upload className="w-3.5 h-3.5" />
-             업로드
+             <Upload className="w-4 h-4 text-white" />
+             <span className="hidden sm:inline">템플릿</span> 업로드
            </button>
                    </div>
       </header>
