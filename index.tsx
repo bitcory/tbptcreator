@@ -23,7 +23,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronRight,
-  Eraser,
+  ClipboardPaste,
   KeyRound,
   Circle,
   Triangle,
@@ -424,15 +424,22 @@ const CopyButton = ({ value }: { value: string }) => {
   );
 };
 
-const ClearButton = ({ onClear }: { onClear: () => void }) => {
+const PasteButton = ({ onPaste }: { onPaste: (text: string) => void }) => {
   return (
     <button
-      onClick={onClear}
+      onClick={async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) onPaste(text);
+        } catch {
+          // clipboard permission denied
+        }
+      }}
       className="memphis-btn memphis-btn-pink px-2 py-1 flex items-center gap-1.5 rounded-lg"
-      title="내용 지우기"
+      title="클립보드 붙여넣기"
     >
-      <Eraser className="w-3.5 h-3.5" />
-      <span className="text-[10px]">지우기</span>
+      <ClipboardPaste className="w-3.5 h-3.5" />
+      <span className="text-[10px]">붙여넣기</span>
     </button>
   );
 };
@@ -460,10 +467,13 @@ const App = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     const str = generatePromptString(template);
     setPromptString(str);
+    const maxTab = (template.prompt_sections || []).length - 1;
+    if (activeTab > maxTab) setActiveTab(Math.max(0, maxTab));
   }, [template]);
 
   const updateAttributeValue = (sectionId: string, componentId: string, attrId: string, newValue: any) => {
@@ -638,12 +648,15 @@ const App = () => {
                       <div
                         key={comp.component_id}
                         onClick={() => {
-                          const el = document.getElementById(`comp-${comp.component_id}`);
-                          if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            el.classList.add('ring-4', 'ring-[#FF6B9D]');
-                            setTimeout(() => el.classList.remove('ring-4', 'ring-[#FF6B9D]'), 2000);
-                          }
+                          setActiveTab(idx);
+                          setTimeout(() => {
+                            const el = document.getElementById(`comp-${comp.component_id}`);
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.classList.add('ring-4', 'ring-[#FF6B9D]');
+                              setTimeout(() => el.classList.remove('ring-4', 'ring-[#FF6B9D]'), 2000);
+                            }
+                          }, 50);
                           setIsSidebarOpen(false);
                         }}
                         className="pl-2 flex items-center gap-2 text-sm text-[#1A1A2E]/70 py-1.5 md:py-1 hover:bg-[#FFE156]/30 hover:text-[#1A1A2E] rounded-lg cursor-pointer transition-colors font-medium"
@@ -725,30 +738,50 @@ const App = () => {
               />
             </div>
 
-            {/* 시각적 편집 영역 */}
-            <div className="flex-1 memphis-card rounded-xl overflow-hidden min-h-0">
-              <div className="h-full overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-8 bg-[#FEFEFE]">
-                {/* Visual Preview */}
-                {(template.prompt_sections || []).map((section, sectionIdx) => (
-                    <div key={section.section_id} className={`memphis-section space-y-3 md:space-y-4 p-3 md:p-5 rounded-xl mt-4 ${
+            {/* 시각적 편집 영역 - 탭 UI */}
+            <div className="flex-1 memphis-card rounded-xl overflow-hidden min-h-0 flex flex-col bg-[#FEFEFE]">
+              {/* 탭 바 */}
+              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-[#1A1A2E]/5 border-b-3 border-[#1A1A2E] overflow-x-auto">
+                {(template.prompt_sections || []).map((section, sectionIdx) => {
+                  const colors = ['#FFE156', '#FF6B9D', '#4ECDC4', '#9B5DE5'];
+                  const color = colors[sectionIdx % 4];
+                  const isActive = activeTab === sectionIdx;
+                  const tabCount = (template.prompt_sections || []).length;
+                  return (
+                    <button
+                      key={section.section_id}
+                      onClick={() => setActiveTab(sectionIdx)}
+                      className={`relative px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg shrink-0 ${
+                        tabCount <= 5 ? 'flex-1' : ''
+                      } ${
+                        isActive
+                          ? 'text-[#1A1A2E] border-2 border-[#1A1A2E] shadow-[3px_3px_0_#1A1A2E]'
+                          : 'text-[#1A1A2E]/60 border-2 border-[#1A1A2E]/20 bg-[#1A1A2E]/5 hover:border-[#1A1A2E]/40 hover:bg-[#1A1A2E]/10 hover:text-[#1A1A2E]/80 hover:shadow-[2px_2px_0_#1A1A2E20]'
+                      }`}
+                      style={{
+                        backgroundColor: isActive ? `${color}50` : undefined,
+                      }}
+                    >
+                      <span
+                        className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shrink-0 transition-all ${isActive ? 'border-2 border-[#1A1A2E] scale-110' : 'border-2 border-[#1A1A2E]/20'}`}
+                        style={{ backgroundColor: color }}
+                      />
+                      <span>{section.section_label_ko || section.section_label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 탭 콘텐츠 */}
+              <div className="flex-1 overflow-y-auto p-3 md:p-6">
+                {(template.prompt_sections || []).map((section, sectionIdx) => {
+                  if (sectionIdx !== activeTab) return null;
+                  return (
+                    <div key={section.section_id} className={`space-y-3 md:space-y-4 p-3 md:p-5 rounded-xl ${
                       sectionIdx % 4 === 0 ? 'bg-[#FFE156]/10' :
                       sectionIdx % 4 === 1 ? 'bg-[#FF6B9D]/10' :
                       sectionIdx % 4 === 2 ? 'bg-[#4ECDC4]/10' : 'bg-[#9B5DE5]/10'
                     }`}>
-                      <h3 className="text-sm md:text-base font-bold text-[#1A1A2E] flex flex-wrap items-center gap-2 pb-2 border-b-3 border-[#1A1A2E]">
-                        <span className={`w-4 h-4 rounded-full border-2 border-[#1A1A2E] ${
-                          sectionIdx % 4 === 0 ? 'bg-[#FFE156]' :
-                          sectionIdx % 4 === 1 ? 'bg-[#FF6B9D]' :
-                          sectionIdx % 4 === 2 ? 'bg-[#4ECDC4]' : 'bg-[#9B5DE5]'
-                        }`} />
-                        {section.section_label_ko || section.section_label}
-                        {section.is_midjourney_params && <span className="text-[10px] bg-[#1A1A2E] text-white px-2 py-0.5 rounded-full font-bold">PARAMS</span>}
-                        {(section.is_active !== false) ?
-                           <span className="text-[10px] text-[#1A1A2E] bg-[#00D4AA] px-2 py-0.5 rounded-full border-2 border-[#1A1A2E] font-bold">Active</span> :
-                           <span className="text-[10px] text-white bg-[#1A1A2E]/50 px-2 py-0.5 rounded-full font-bold">Inactive</span>
-                        }
-                      </h3>
-
                       <div className="flex flex-col gap-4 md:gap-6">
                         {(section.components || []).map((comp) => (
                           <div key={comp.component_id} id={`comp-${comp.component_id}`} className="space-y-2 md:space-y-3 transition-all duration-300 rounded-lg">
@@ -757,7 +790,7 @@ const App = () => {
                                 {comp.component_label_ko || comp.component_label}
                              </div>
 
-                             <div className="grid grid-cols-1 gap-3 md:gap-4 pl-2 border-l-4 border-[#1A1A2E]">
+                             <div className="grid grid-cols-1 gap-3 md:gap-4">
                                {(comp.attributes || []).map((attr) => (
                                  <div key={attr.attr_id} className="memphis-card bg-white p-3 md:p-4 rounded-xl flex flex-col gap-2 md:gap-3">
                                    {/* Attribute Header */}
@@ -771,7 +804,7 @@ const App = () => {
                                        <CopyButton value={getDisplayValue(attr, attr.value)} />
                                      </div>
                                      <div className="flex items-center gap-1 shrink-0">
-                                       <ClearButton onClear={() => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, "")} />
+                                       <PasteButton onPaste={(text) => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, text)} />
                                        <CopyButton value={Array.isArray(attr.value) ? attr.value.join(', ') : String(attr.value)} />
                                      </div>
                                    </div>
@@ -814,9 +847,10 @@ const App = () => {
                         ))}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            </div>
             </div>
         </main>
       </div>
