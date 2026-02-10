@@ -85,13 +85,20 @@
 }
 
 html {
-  zoom: 0.9;
+  background-color: var(--aurora-bg);
+  height: 100%;
 }
 
 body {
   background-color: var(--aurora-bg);
   color: var(--aurora-text);
   font-family: 'Paperlogy', sans-serif;
+  zoom: 0.9;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
 }
 
 /* Aurora Background */

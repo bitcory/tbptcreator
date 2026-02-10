@@ -567,7 +567,7 @@ const App = () => {
   ];
 
   return (
-    <div className="flex flex-col h-screen aurora-bg text-white overflow-hidden relative">
+    <div className="flex flex-col h-full aurora-bg text-white overflow-hidden relative">
       <AuroraOrbs />
 
       {/* Header */}
