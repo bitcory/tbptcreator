@@ -560,14 +560,14 @@ const App = () => {
 
   // Tab accent colors for glass theme
   const tabColors = [
-    { bg: 'rgba(0,212,170,0.12)', border: 'rgba(0,212,170,0.3)', dot: '#00d4aa', text: '#6ee7c0' },
-    { bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.3)', dot: '#f472b6', text: '#f9a8d4' },
-    { bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)', dot: '#8b5cf6', text: '#c4b5fd' },
-    { bg: 'rgba(96,165,250,0.12)', border: 'rgba(96,165,250,0.3)', dot: '#60a5fa', text: '#93c5fd' },
+    { bg: 'rgba(0,212,170,0.10)', border: 'rgba(0,212,170,0.3)', dot: '#00d4aa', text: '#a7f3d0' },
+    { bg: 'rgba(244,114,182,0.10)', border: 'rgba(244,114,182,0.3)', dot: '#f472b6', text: '#fce7f3' },
+    { bg: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.3)', dot: '#8b5cf6', text: '#e9e0ff' },
+    { bg: 'rgba(96,165,250,0.10)', border: 'rgba(96,165,250,0.3)', dot: '#60a5fa', text: '#dbeafe' },
   ];
 
   return (
-    <div className="flex flex-col h-screen aurora-bg text-white/90 overflow-hidden relative">
+    <div className="flex flex-col h-screen aurora-bg text-white overflow-hidden relative">
       <AuroraOrbs />
 
       {/* Header */}
@@ -636,7 +636,7 @@ const App = () => {
           </div>
 
           <div className="p-3 md:p-4 border-b border-white/10">
-            <h2 className="font-medium text-base text-white/90 flex items-center gap-2">
+            <h2 className="font-medium text-base text-white flex items-center gap-2">
               <Layers className="w-5 h-5 text-purple-400" />
               구조 (Structure)
               <div className="w-2 h-2 rounded-full bg-emerald-400 ml-auto" />
@@ -648,15 +648,15 @@ const App = () => {
               <div key={section.section_id} className="glass-card rounded-xl overflow-hidden">
                 <button
                   onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
-                  className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-medium text-white/90 hover:bg-white/5 transition-colors"
+                  className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-medium text-white hover:bg-white/5 transition-colors"
                   style={{ background: tabColors[idx % 4].bg }}
                 >
-                  {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-white/50" /> : <ChevronRight className="w-4 h-4 text-white/50" />}
+                  {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
                   <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
                   {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                 </button>
                 {expandedSection === section.section_id && (
-                  <div className="p-2 space-y-1 bg-white/[0.02]">
+                  <div className="p-2 space-y-1 bg-black/20">
                     {(section.components || []).map((comp) => (
                       <div
                         key={comp.component_id}
@@ -672,7 +672,7 @@ const App = () => {
                           }, 50);
                           setIsSidebarOpen(false);
                         }}
-                        className="pl-2 flex items-center gap-2 text-sm text-white/50 py-1.5 md:py-1 hover:bg-white/5 hover:text-white/80 rounded-lg cursor-pointer transition-colors font-normal"
+                        className="pl-2 flex items-center gap-2 text-sm text-white/70 py-1.5 md:py-1 hover:bg-white/5 hover:text-white rounded-lg cursor-pointer transition-colors font-normal"
                       >
                         <Box className="w-3 h-3 text-purple-400/70" />
                         <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
@@ -680,7 +680,7 @@ const App = () => {
                       </div>
                     ))}
                     {(!section.components || section.components.length === 0) && (
-                       <div className="pl-2 text-xs text-white/30 italic py-1">하위 요소 없음</div>
+                       <div className="pl-2 text-xs text-white/50 italic py-1">하위 요소 없음</div>
                     )}
                   </div>
                 )}
@@ -688,9 +688,9 @@ const App = () => {
             ))}
 
             {(!template.prompt_sections || template.prompt_sections.length === 0) && (
-              <div className="text-center py-10 px-4 text-white/40 text-sm">
+              <div className="text-center py-10 px-4 text-white/60 text-sm">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center glass-card">
-                  <FileJson className="w-8 h-8 text-white/40" />
+                  <FileJson className="w-8 h-8 text-white/60" />
                 </div>
                 <p className="font-medium">로드된 템플릿이 없습니다.</p>
                 <button
@@ -728,7 +728,7 @@ const App = () => {
             {/* 최종 프롬프트 영역 */}
             <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                <h3 className="text-base md:text-lg font-medium text-white/90 flex items-center gap-2">
+                <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-emerald-400" />
                   최종 프롬프트
                 </h3>
@@ -742,7 +742,7 @@ const App = () => {
               <textarea
                 value={promptString}
                 readOnly
-                className="w-full h-28 md:h-36 p-3 md:p-4 bg-white/[0.03] font-mono text-xs md:text-sm text-white/80 resize-none outline-none leading-relaxed border border-white/10 rounded-xl overflow-hidden"
+                className="w-full h-28 md:h-36 p-3 md:p-4 bg-black/40 font-mono text-xs md:text-sm text-white resize-none outline-none leading-relaxed border border-white/15 rounded-xl overflow-hidden"
                 spellCheck={false}
                 placeholder="생성된 프롬프트가 없습니다..."
               />
@@ -751,7 +751,7 @@ const App = () => {
             {/* 시각적 편집 영역 - 탭 UI */}
             <div className="flex-1 glass-card rounded-xl overflow-hidden min-h-0 flex flex-col">
               {/* 탭 바 */}
-              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-white/[0.02] border-b border-white/10 overflow-x-auto">
+              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-black/20 border-b border-white/10 overflow-x-auto">
                 {(template.prompt_sections || []).map((section, sectionIdx) => {
                   const tc = tabColors[sectionIdx % 4];
                   const isActive = activeTab === sectionIdx;
@@ -767,7 +767,7 @@ const App = () => {
                         background: isActive ? tc.bg : 'transparent',
                         borderWidth: '1px',
                         borderColor: isActive ? tc.border : 'rgba(255,255,255,0.06)',
-                        color: isActive ? tc.text : 'rgba(255,255,255,0.4)',
+                        color: isActive ? tc.text : 'rgba(255,255,255,0.6)',
                         boxShadow: isActive ? `0 0 16px ${tc.bg}` : 'none',
                       }}
                     >
@@ -794,7 +794,7 @@ const App = () => {
                       <div className="flex flex-col gap-4 md:gap-6">
                         {(section.components || []).map((comp) => (
                           <div key={comp.component_id} id={`comp-${comp.component_id}`} className="space-y-2 md:space-y-3 transition-all duration-300 rounded-lg">
-                             <div className="text-xs font-medium text-white/60 flex items-center gap-2 px-1">
+                             <div className="text-xs font-medium text-white/80 flex items-center gap-2 px-1">
                                 <Box className="w-3 h-3 text-purple-400/70" />
                                 {comp.component_label_ko || comp.component_label}
                              </div>
@@ -805,7 +805,7 @@ const App = () => {
                                    {/* Attribute Header */}
                                    <div className="flex items-center justify-between gap-2">
                                      <div className="flex items-center gap-2">
-                                       <label className="text-sm md:text-base font-medium text-white/90 flex items-center gap-2 truncate">
+                                       <label className="text-sm md:text-base font-medium text-white flex items-center gap-2 truncate">
                                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tc.dot }} />
                                          {attr.label_ko || attr.label}
                                          {(attr.is_active === false) && <span className="text-[10px] text-pink-400 font-medium">(Inactive)</span>}
@@ -823,7 +823,7 @@ const App = () => {
                                      {/* Left: Current Value */}
                                      <div className="w-full md:w-[40%]">
                                        <div
-                                         className="text-sm md:text-base text-white/70 break-words leading-relaxed p-3 rounded-lg font-normal h-full"
+                                         className="text-sm md:text-base text-white break-words leading-relaxed p-3 rounded-lg font-normal h-full"
                                          style={{ background: tc.bg, border: `1px solid ${tc.border}` }}
                                          title={String(attr.value)}
                                        >
@@ -873,7 +873,7 @@ const App = () => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
           <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] border border-white/15">
             <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between shrink-0">
-              <h3 className="text-base md:text-lg font-medium text-white/90 flex items-center gap-2">
+              <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
                 <FileJson className="w-5 h-5 text-purple-400" />
                 JSON 템플릿 불러오기
               </h3>
@@ -893,7 +893,7 @@ const App = () => {
                   <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-pink-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-pink-300">오류 발생</p>
-                    <p className="text-white/60">{uploadError}</p>
+                    <p className="text-white/80">{uploadError}</p>
                   </div>
                 </div>
               )}
@@ -931,7 +931,7 @@ const App = () => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
           <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/15">
             <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0d0d24]/95 backdrop-blur-xl z-10 rounded-t-2xl">
-              <h3 className="text-base md:text-lg font-medium text-white/90 flex items-center gap-2">
+              <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-purple-400" />
                 API 연결 정보
               </h3>
@@ -944,7 +944,7 @@ const App = () => {
             </div>
             <div className="p-4 md:p-6 space-y-4">
               <div className="space-y-2">
-                <p className="text-xs md:text-sm text-white/50 font-medium">현재 사용 중인 모델:</p>
+                <p className="text-xs md:text-sm text-white/70 font-medium">현재 사용 중인 모델:</p>
                 <div className="flex items-center gap-2 font-mono text-sm px-3 py-2 rounded-xl glass-card" style={{ background: 'rgba(0,212,170,0.08)', borderColor: 'rgba(0,212,170,0.25)' }}>
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="text-emerald-300">gemini-2.5-flash</span>
@@ -952,20 +952,20 @@ const App = () => {
               </div>
 
               <div className="space-y-2 pt-2 border-t border-white/10">
-                <p className="text-xs md:text-sm text-white/50 font-medium">기능별 사용:</p>
+                <p className="text-xs md:text-sm text-white/70 font-medium">기능별 사용:</p>
                 <ul className="space-y-2 text-xs md:text-sm">
                   <li className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(0,212,170,0.06)' }}>
                     <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-medium text-white/80">AI 퀵 번역기</span>
-                      <p className="text-xs text-white/40 mt-0.5">한글↔영문 텍스트 즉시 번역</p>
+                      <span className="font-medium text-white">AI 퀵 번역기</span>
+                      <p className="text-xs text-white/60 mt-0.5">한글↔영문 텍스트 즉시 번역</p>
                     </div>
                   </li>
                   <li className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(139,92,246,0.06)' }}>
-                    <ShieldCheck className="w-4 h-4 text-white/30 mt-0.5 shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-white/50 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-medium text-white/60">템플릿 업로드 (Parse Only)</span>
-                      <p className="text-xs text-white/40 mt-0.5">API 미사용, JSON 파싱만 수행</p>
+                      <span className="font-medium text-white/80">템플릿 업로드 (Parse Only)</span>
+                      <p className="text-xs text-white/60 mt-0.5">API 미사용, JSON 파싱만 수행</p>
                     </div>
                   </li>
                 </ul>
@@ -973,7 +973,7 @@ const App = () => {
 
               {/* API Key Input Section */}
               <div className="space-y-2 pt-4 border-t border-white/10">
-                 <label className="text-xs md:text-sm font-medium text-white/70 flex items-center gap-2">
+                 <label className="text-xs md:text-sm font-medium text-white/90 flex items-center gap-2">
                    <KeyRound className="w-4 h-4 text-pink-400" />
                    Custom API Key
                  </label>
@@ -986,7 +986,7 @@ const App = () => {
                      className="glass-input w-full p-2.5 rounded-lg text-sm font-mono"
                    />
                  </div>
-                 <p className="text-xs text-white/40">
+                 <p className="text-xs text-white/60">
                    미입력시 기본 키 사용
                  </p>
               </div>
