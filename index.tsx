@@ -586,7 +586,7 @@ const App = () => {
           >
             <img src="/logo.png" alt="TB Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-lg border border-white/20" />
             <h1 className="text-base md:text-xl font-semibold text-white tracking-tight glow-teal">
-              TB 프롬프트 편집기
+              TB PROMPT CREATOR
             </h1>
           </a>
         </div>
