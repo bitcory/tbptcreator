@@ -84,11 +84,14 @@
   --aurora-green: #34d399;
 }
 
+html {
+  zoom: 0.9;
+}
+
 body {
   background-color: var(--aurora-bg);
   color: var(--aurora-text);
   font-family: 'Paperlogy', sans-serif;
-  zoom: 0.9;
 }
 
 /* Aurora Background */
