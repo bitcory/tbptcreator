@@ -406,13 +406,13 @@ const CopyButton = ({ value }: { value: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="memphis-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-[#1A1A2E]"
+      className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg"
       title="값 복사"
     >
       {copied ? (
         <>
-          <Check className="w-3.5 h-3.5 text-[#00D4AA]" />
-          <span className="text-[10px] text-[#00D4AA] font-bold">복사됨</span>
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-[10px] text-emerald-400 font-medium">복사됨</span>
         </>
       ) : (
         <>
@@ -435,7 +435,7 @@ const PasteButton = ({ onPaste }: { onPaste: (text: string) => void }) => {
           // clipboard permission denied
         }
       }}
-      className="memphis-btn memphis-btn-pink px-2 py-1 flex items-center gap-1.5 rounded-lg"
+      className="glass-btn glass-btn-pink px-2 py-1 flex items-center gap-1.5 rounded-lg"
       title="클립보드 붙여넣기"
     >
       <ClipboardPaste className="w-3.5 h-3.5" />
@@ -444,13 +444,25 @@ const PasteButton = ({ onPaste }: { onPaste: (text: string) => void }) => {
   );
 };
 
-// Memphis Decorative Shapes
-const MemphisShapes = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    <div className="absolute top-10 left-10 w-8 h-8 bg-[#FF6B9D] border-3 border-[#1A1A2E] rounded-full memphis-float" style={{ animationDelay: '0s' }} />
-    <div className="absolute top-20 right-20 w-6 h-6 bg-[#FFE156] border-3 border-[#1A1A2E] rotate-45" style={{ animationDelay: '0.5s' }} />
-    <div className="absolute bottom-32 left-20 w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-b-[26px] border-b-[#4ECDC4]" />
-    <div className="absolute bottom-20 right-40 w-10 h-10 bg-[#9B5DE5] border-3 border-[#1A1A2E] rounded-full" style={{ animationDelay: '1s' }} />
+// Aurora Decorative Orbs
+const AuroraOrbs = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div
+      className="aurora-orb w-[500px] h-[500px] top-[-10%] left-[10%]"
+      style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%)', animationDelay: '0s', animationDuration: '10s' }}
+    />
+    <div
+      className="aurora-orb w-[400px] h-[400px] top-[20%] right-[-5%]"
+      style={{ background: 'radial-gradient(circle, rgba(0,212,170,0.25) 0%, transparent 70%)', animationDelay: '2s', animationDuration: '12s' }}
+    />
+    <div
+      className="aurora-orb w-[350px] h-[350px] bottom-[5%] left-[30%]"
+      style={{ background: 'radial-gradient(circle, rgba(244,114,182,0.2) 0%, transparent 70%)', animationDelay: '4s', animationDuration: '14s' }}
+    />
+    <div
+      className="aurora-orb w-[300px] h-[300px] bottom-[20%] right-[20%]"
+      style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.2) 0%, transparent 70%)', animationDelay: '1s', animationDuration: '11s' }}
+    />
   </div>
 );
 
@@ -546,20 +558,24 @@ const App = () => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Tab accent colors for glass theme
+  const tabColors = [
+    { bg: 'rgba(0,212,170,0.12)', border: 'rgba(0,212,170,0.3)', dot: '#00d4aa', text: '#6ee7c0' },
+    { bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.3)', dot: '#f472b6', text: '#f9a8d4' },
+    { bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)', dot: '#8b5cf6', text: '#c4b5fd' },
+    { bg: 'rgba(96,165,250,0.12)', border: 'rgba(96,165,250,0.3)', dot: '#60a5fa', text: '#93c5fd' },
+  ];
+
   return (
-    <div className="flex flex-col h-screen memphis-bg text-[#1A1A2E] overflow-hidden selection:bg-[#FFE156]/50 relative">
-      <MemphisShapes />
+    <div className="flex flex-col h-screen aurora-bg text-white/90 overflow-hidden relative">
+      <AuroraOrbs />
 
       {/* Header */}
-      <header className="memphis-header h-14 md:h-16 flex items-center justify-between px-3 md:px-6 z-20 shrink-0 relative">
-        {/* Decorative elements */}
-        <div className="absolute top-2 left-1/4 w-4 h-4 bg-[#FF6B9D] border-2 border-[#1A1A2E] rounded-full" />
-        <div className="absolute bottom-2 right-1/3 w-3 h-3 bg-[#4ECDC4] border-2 border-[#1A1A2E] rotate-45" />
-
+      <header className="glass-header h-14 md:h-16 flex items-center justify-between px-3 md:px-6 z-20 shrink-0 relative">
         <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden memphis-btn p-2 rounded-lg"
+            className="md:hidden glass-btn p-2 rounded-lg"
           >
             {isSidebarOpen ? <X className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
           </button>
@@ -568,8 +584,8 @@ const App = () => {
             className="flex items-center gap-2 md:gap-3 hover:scale-105 transition-transform"
             onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
           >
-            <img src="/logo.png" alt="TB Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-lg border-2 border-[#1A1A2E]" />
-            <h1 className="text-base md:text-xl font-bold text-[#1A1A2E] tracking-tight">
+            <img src="/logo.png" alt="TB Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-lg border border-white/20" />
+            <h1 className="text-base md:text-xl font-semibold text-white tracking-tight glow-teal">
               TB 프롬프트 편집기
             </h1>
           </a>
@@ -577,22 +593,22 @@ const App = () => {
         <div className="flex items-center gap-1 md:gap-2">
            <button
              onClick={() => setIsUploadModalOpen(true)}
-             className="memphis-btn memphis-btn-pink flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white shadow-[5px_5px_0_#1A1A2E] hover:shadow-[7px_7px_0_#1A1A2E]"
+             className="glass-btn glass-btn-pink flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
              title="JSON 템플릿 업로드"
            >
-             <Upload className="w-4 h-4 text-white" />
+             <Upload className="w-4 h-4" />
              <span className="hidden sm:inline">템플릿</span> 업로드
            </button>
-                   </div>
+        </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative z-10">
 
         {/* Mobile Overlay */}
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-[#1A1A2E]/60 z-30 md:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
@@ -600,50 +616,47 @@ const App = () => {
         {/* LEFT PANEL: Structure Tree */}
         <aside className={`
           fixed md:relative inset-y-0 left-0 z-40 md:z-auto
-          w-72 md:w-80 memphis-sidebar flex flex-col shrink-0
+          w-72 md:w-80 glass-sidebar flex flex-col shrink-0
           transform transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           top-14 md:top-0 h-[calc(100vh-3.5rem)] md:h-auto
         `}>
           {/* 프롬프트 만들기 버튼 */}
-          <div className="p-3 md:p-4 border-b-4 border-[#1A1A2E] bg-[#FEFEFE]">
+          <div className="p-3 md:p-4 border-b border-white/10">
             <a
               href="https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
               target="_blank"
               rel="noreferrer"
-              className="group relative flex items-center justify-center gap-2.5 w-full px-4 py-3.5 bg-[#00D4AA] hover:bg-[#4ECDC4] text-[#1A1A2E] text-sm font-bold rounded-xl border-4 border-[#1A1A2E] shadow-[5px_5px_0_#1A1A2E] hover:shadow-[7px_7px_0_#1A1A2E] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all duration-200 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0_#1A1A2E]"
+              className="group relative flex items-center justify-center gap-2.5 w-full px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 glass-btn-teal glass-btn"
             >
               <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200" />
               <span className="text-base">프롬프트 만들기</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-3.5 h-3.5 opacity-50" />
             </a>
           </div>
 
-          <div className="p-3 md:p-4 border-b-4 border-[#1A1A2E] bg-[#FEFEFE]">
-            <h2 className="font-bold text-base text-[#1A1A2E] flex items-center gap-2">
-              <Layers className="w-5 h-5 text-[#9B5DE5]" />
+          <div className="p-3 md:p-4 border-b border-white/10">
+            <h2 className="font-medium text-base text-white/90 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-purple-400" />
               구조 (Structure)
-              <div className="w-3 h-3 bg-[#FF6B9D] border-2 border-[#1A1A2E] rounded-full ml-auto" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400 ml-auto" />
             </h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-3 bg-[#FEFEFE]/80">
+          <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
             {(template.prompt_sections || []).map((section, idx) => (
-              <div key={section.section_id} className="memphis-card rounded-xl overflow-hidden">
+              <div key={section.section_id} className="glass-card rounded-xl overflow-hidden">
                 <button
                   onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
-                  className={`w-full px-3 py-2.5 flex items-center gap-2 text-base font-bold text-[#1A1A2E] hover:bg-[#FFE156]/30 transition-colors ${
-                    idx % 4 === 0 ? 'bg-[#FFE156]/20' :
-                    idx % 4 === 1 ? 'bg-[#FF6B9D]/20' :
-                    idx % 4 === 2 ? 'bg-[#4ECDC4]/20' : 'bg-[#9B5DE5]/20'
-                  }`}
+                  className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-medium text-white/90 hover:bg-white/5 transition-colors"
+                  style={{ background: tabColors[idx % 4].bg }}
                 >
-                  {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-white/50" /> : <ChevronRight className="w-4 h-4 text-white/50" />}
                   <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
-                  {(section.is_active !== false) && <div className="w-3 h-3 rounded-full bg-[#00D4AA] border-2 border-[#1A1A2E]"></div>}
+                  {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
                 </button>
                 {expandedSection === section.section_id && (
-                  <div className="p-2 space-y-1 bg-white">
+                  <div className="p-2 space-y-1 bg-white/[0.02]">
                     {(section.components || []).map((comp) => (
                       <div
                         key={comp.component_id}
@@ -653,21 +666,21 @@ const App = () => {
                             const el = document.getElementById(`comp-${comp.component_id}`);
                             if (el) {
                               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              el.classList.add('ring-4', 'ring-[#FF6B9D]');
-                              setTimeout(() => el.classList.remove('ring-4', 'ring-[#FF6B9D]'), 2000);
+                              el.classList.add('ring-2', 'ring-purple-400/50');
+                              setTimeout(() => el.classList.remove('ring-2', 'ring-purple-400/50'), 2000);
                             }
                           }, 50);
                           setIsSidebarOpen(false);
                         }}
-                        className="pl-2 flex items-center gap-2 text-sm text-[#1A1A2E]/70 py-1.5 md:py-1 hover:bg-[#FFE156]/30 hover:text-[#1A1A2E] rounded-lg cursor-pointer transition-colors font-medium"
+                        className="pl-2 flex items-center gap-2 text-sm text-white/50 py-1.5 md:py-1 hover:bg-white/5 hover:text-white/80 rounded-lg cursor-pointer transition-colors font-normal"
                       >
-                        <Box className="w-3 h-3 text-[#9B5DE5]" />
+                        <Box className="w-3 h-3 text-purple-400/70" />
                         <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
-                        {(comp.is_active !== false) && <Check className="w-3 h-3 text-[#00D4AA] ml-auto mr-1" />}
+                        {(comp.is_active !== false) && <Check className="w-3 h-3 text-emerald-400/70 ml-auto mr-1" />}
                       </div>
                     ))}
                     {(!section.components || section.components.length === 0) && (
-                       <div className="pl-2 text-xs text-[#1A1A2E]/50 italic py-1">하위 요소 없음</div>
+                       <div className="pl-2 text-xs text-white/30 italic py-1">하위 요소 없음</div>
                     )}
                   </div>
                 )}
@@ -675,16 +688,16 @@ const App = () => {
             ))}
 
             {(!template.prompt_sections || template.prompt_sections.length === 0) && (
-              <div className="text-center py-10 px-4 text-[#1A1A2E]/60 text-sm">
-                <div className="w-16 h-16 mx-auto mb-4 bg-[#FFE156] border-3 border-[#1A1A2E] rounded-full flex items-center justify-center shadow-[4px_4px_0_#1A1A2E]">
-                  <FileJson className="w-8 h-8" />
+              <div className="text-center py-10 px-4 text-white/40 text-sm">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center glass-card">
+                  <FileJson className="w-8 h-8 text-white/40" />
                 </div>
-                <p className="font-bold">로드된 템플릿이 없습니다.</p>
+                <p className="font-medium">로드된 템플릿이 없습니다.</p>
                 <button
                   onClick={() => {
                     setIsUploadModalOpen(true);
                   }}
-                  className="mt-3 memphis-btn memphis-btn-cyan px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
+                  className="mt-3 glass-btn glass-btn-teal px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
                 >
                   <Play className="w-3 h-3" />
                   JSON 업로드 시작
@@ -694,12 +707,12 @@ const App = () => {
           </div>
 
           {/* SIDEBAR FOOTER: External Tools */}
-          <div className="p-3 md:p-4 border-t-4 border-[#1A1A2E] bg-[#FEFEFE]">
+          <div className="p-3 md:p-4 border-t border-white/10">
             <a
               href="https://translate.google.co.kr/"
               target="_blank"
               rel="noreferrer"
-              className="memphis-btn memphis-btn-purple flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-bold rounded-lg"
+              className="glass-btn glass-btn-purple flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg"
               title="새 탭에서 구글 번역기 열기"
             >
               <ExternalLink className="w-4 h-4" />
@@ -709,22 +722,19 @@ const App = () => {
         </aside>
 
         {/* RIGHT PANEL: Editor & Output */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#FEFEFE] relative">
-          {/* Decorative corner shapes */}
-          <div className="absolute top-4 right-4 w-6 h-6 bg-[#FF6B9D] border-2 border-[#1A1A2E] rotate-45 z-10" />
-
+        <main className="flex-1 flex flex-col min-w-0 relative">
           {/* Middle: Prompt Output + Visual Editor */}
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
             {/* 최종 프롬프트 영역 */}
-            <div className="shrink-0 memphis-card rounded-xl p-3 md:p-4 bg-[#4ECDC4]/10">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b-3 border-[#1A1A2E]">
-                <h3 className="text-base md:text-lg font-bold text-[#1A1A2E] flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full border-2 border-[#1A1A2E] bg-[#4ECDC4]"></span>
+            <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+                <h3 className="text-base md:text-lg font-medium text-white/90 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-emerald-400" />
                   최종 프롬프트
                 </h3>
                 <button
                   onClick={() => copyToClipboard(promptString)}
-                  className="memphis-btn text-sm font-bold flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg"
+                  className="glass-btn text-sm font-medium flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg"
                 >
                   <Copy className="w-3.5 h-3.5" /> 복사
                 </button>
@@ -732,39 +742,41 @@ const App = () => {
               <textarea
                 value={promptString}
                 readOnly
-                className="w-full h-28 md:h-36 p-3 md:p-4 bg-white font-mono text-xs md:text-sm text-[#1A1A2E] resize-none outline-none leading-relaxed selection:bg-[#FFE156]/50 border-2 border-[#1A1A2E] rounded-xl overflow-hidden"
+                className="w-full h-28 md:h-36 p-3 md:p-4 bg-white/[0.03] font-mono text-xs md:text-sm text-white/80 resize-none outline-none leading-relaxed border border-white/10 rounded-xl overflow-hidden"
                 spellCheck={false}
                 placeholder="생성된 프롬프트가 없습니다..."
               />
             </div>
 
             {/* 시각적 편집 영역 - 탭 UI */}
-            <div className="flex-1 memphis-card rounded-xl overflow-hidden min-h-0 flex flex-col bg-[#FEFEFE]">
+            <div className="flex-1 glass-card rounded-xl overflow-hidden min-h-0 flex flex-col">
               {/* 탭 바 */}
-              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-[#1A1A2E]/5 border-b-3 border-[#1A1A2E] overflow-x-auto">
+              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-white/[0.02] border-b border-white/10 overflow-x-auto">
                 {(template.prompt_sections || []).map((section, sectionIdx) => {
-                  const colors = ['#FFE156', '#FF6B9D', '#4ECDC4', '#9B5DE5'];
-                  const color = colors[sectionIdx % 4];
+                  const tc = tabColors[sectionIdx % 4];
                   const isActive = activeTab === sectionIdx;
                   const tabCount = (template.prompt_sections || []).length;
                   return (
                     <button
                       key={section.section_id}
                       onClick={() => setActiveTab(sectionIdx)}
-                      className={`relative px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg shrink-0 ${
+                      className={`relative px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg shrink-0 ${
                         tabCount <= 5 ? 'flex-1' : ''
-                      } ${
-                        isActive
-                          ? 'text-[#1A1A2E] border-2 border-[#1A1A2E] shadow-[3px_3px_0_#1A1A2E]'
-                          : 'text-[#1A1A2E]/60 border-2 border-[#1A1A2E]/20 bg-[#1A1A2E]/5 hover:border-[#1A1A2E]/40 hover:bg-[#1A1A2E]/10 hover:text-[#1A1A2E]/80 hover:shadow-[2px_2px_0_#1A1A2E20]'
                       }`}
                       style={{
-                        backgroundColor: isActive ? `${color}50` : undefined,
+                        background: isActive ? tc.bg : 'transparent',
+                        borderWidth: '1px',
+                        borderColor: isActive ? tc.border : 'rgba(255,255,255,0.06)',
+                        color: isActive ? tc.text : 'rgba(255,255,255,0.4)',
+                        boxShadow: isActive ? `0 0 16px ${tc.bg}` : 'none',
                       }}
                     >
                       <span
-                        className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shrink-0 transition-all ${isActive ? 'border-2 border-[#1A1A2E] scale-110' : 'border-2 border-[#1A1A2E]/20'}`}
-                        style={{ backgroundColor: color }}
+                        className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shrink-0 transition-all"
+                        style={{
+                          backgroundColor: tc.dot,
+                          opacity: isActive ? 1 : 0.3,
+                        }}
                       />
                       <span>{section.section_label_ko || section.section_label}</span>
                     </button>
@@ -776,30 +788,27 @@ const App = () => {
               <div className="flex-1 overflow-y-auto p-3 md:p-6">
                 {(template.prompt_sections || []).map((section, sectionIdx) => {
                   if (sectionIdx !== activeTab) return null;
+                  const tc = tabColors[sectionIdx % 4];
                   return (
-                    <div key={section.section_id} className={`space-y-3 md:space-y-4 p-3 md:p-5 rounded-xl ${
-                      sectionIdx % 4 === 0 ? 'bg-[#FFE156]/10' :
-                      sectionIdx % 4 === 1 ? 'bg-[#FF6B9D]/10' :
-                      sectionIdx % 4 === 2 ? 'bg-[#4ECDC4]/10' : 'bg-[#9B5DE5]/10'
-                    }`}>
+                    <div key={section.section_id} className="space-y-3 md:space-y-4 p-3 md:p-5 rounded-xl" style={{ background: tc.bg }}>
                       <div className="flex flex-col gap-4 md:gap-6">
                         {(section.components || []).map((comp) => (
                           <div key={comp.component_id} id={`comp-${comp.component_id}`} className="space-y-2 md:space-y-3 transition-all duration-300 rounded-lg">
-                             <div className="text-xs font-bold text-[#1A1A2E] flex items-center gap-2 px-1">
-                                <Box className="w-3 h-3 text-[#9B5DE5]" />
+                             <div className="text-xs font-medium text-white/60 flex items-center gap-2 px-1">
+                                <Box className="w-3 h-3 text-purple-400/70" />
                                 {comp.component_label_ko || comp.component_label}
                              </div>
 
                              <div className="grid grid-cols-1 gap-3 md:gap-4">
                                {(comp.attributes || []).map((attr) => (
-                                 <div key={attr.attr_id} className="memphis-card bg-white p-3 md:p-4 rounded-xl flex flex-col gap-2 md:gap-3">
+                                 <div key={attr.attr_id} className="glass-card p-3 md:p-4 rounded-xl flex flex-col gap-2 md:gap-3">
                                    {/* Attribute Header */}
                                    <div className="flex items-center justify-between gap-2">
                                      <div className="flex items-center gap-2">
-                                       <label className="text-sm md:text-base font-bold text-[#1A1A2E] flex items-center gap-2 truncate">
-                                         <Triangle className="w-3 h-3 text-[#FF6B9D] fill-current" />
+                                       <label className="text-sm md:text-base font-medium text-white/90 flex items-center gap-2 truncate">
+                                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tc.dot }} />
                                          {attr.label_ko || attr.label}
-                                         {(attr.is_active === false) && <span className="text-[10px] text-[#FF6B9D] font-bold">(Inactive)</span>}
+                                         {(attr.is_active === false) && <span className="text-[10px] text-pink-400 font-medium">(Inactive)</span>}
                                        </label>
                                        <CopyButton value={getDisplayValue(attr, attr.value)} />
                                      </div>
@@ -813,7 +822,11 @@ const App = () => {
                                    <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch">
                                      {/* Left: Current Value */}
                                      <div className="w-full md:w-[40%]">
-                                       <div className="text-sm md:text-base text-[#1A1A2E] break-words leading-relaxed bg-[#FFE156]/20 p-3 rounded-lg border-2 border-[#1A1A2E]/30 font-medium h-full" title={String(attr.value)}>
+                                       <div
+                                         className="text-sm md:text-base text-white/70 break-words leading-relaxed p-3 rounded-lg font-normal h-full"
+                                         style={{ background: tc.bg, border: `1px solid ${tc.border}` }}
+                                         title={String(attr.value)}
+                                       >
                                          {getDisplayValue(attr, attr.value)}
                                        </div>
                                      </div>
@@ -824,7 +837,7 @@ const App = () => {
                                          list={attr.options ? `datalist-${attr.attr_id}` : undefined}
                                          type="text"
                                          placeholder="영문 값 입력..."
-                                         className="memphis-input w-full h-full text-sm md:text-base p-3 rounded-lg text-[#1A1A2E] placeholder:text-[#1A1A2E]/40 font-medium"
+                                         className="glass-input w-full h-full text-sm md:text-base p-3 rounded-lg font-normal"
                                          value={Array.isArray(attr.value) ? attr.value.join(', ') : attr.value}
                                          onChange={(e) => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, e.target.value)}
                                        />
@@ -857,17 +870,16 @@ const App = () => {
 
       {/* Upload Modal */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 bg-[#1A1A2E]/80 z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="memphis-card bg-[#FEFEFE] rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh]">
-            <div className="p-3 md:p-5 border-b-4 border-[#1A1A2E] flex items-center justify-between bg-[#FFE156] rounded-t-xl shrink-0">
-              <h3 className="text-base md:text-lg font-bold text-[#1A1A2E] flex items-center gap-2">
-                <FileJson className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] border border-white/15">
+            <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between shrink-0">
+              <h3 className="text-base md:text-lg font-medium text-white/90 flex items-center gap-2">
+                <FileJson className="w-5 h-5 text-purple-400" />
                 JSON 템플릿 불러오기
-                <div className="w-3 h-3 bg-[#FF6B9D] border-2 border-[#1A1A2E] rounded-full" />
               </h3>
               <button
                 onClick={() => setIsUploadModalOpen(false)}
-                className="memphis-btn memphis-btn-pink p-1 rounded-lg"
+                className="glass-btn glass-btn-pink p-1.5 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -875,11 +887,13 @@ const App = () => {
 
             <div className="p-3 md:p-6 flex-1 overflow-hidden flex flex-col">
               {uploadError && (
-                <div className="mb-3 md:mb-4 p-2.5 md:p-3 bg-[#FF6B9D]/20 border-3 border-[#FF6B9D] rounded-xl flex items-start gap-2 md:gap-3 text-[#1A1A2E] text-xs md:text-sm shrink-0 shadow-[4px_4px_0_#FF6B9D]">
-                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-[#FF6B9D] shrink-0 mt-0.5" />
+                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0"
+                  style={{ background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.3)' }}
+                >
+                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-pink-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold">오류 발생</p>
-                    <p>{uploadError}</p>
+                    <p className="font-medium text-pink-300">오류 발생</p>
+                    <p className="text-white/60">{uploadError}</p>
                   </div>
                 </div>
               )}
@@ -888,21 +902,21 @@ const App = () => {
                 value={uploadInput}
                 onChange={(e) => setUploadInput(e.target.value)}
                 placeholder='{"meta_data": ..., "prompt_sections": ...}'
-                className="memphis-input flex-1 w-full p-3 md:p-4 text-[#1A1A2E] font-mono text-xs rounded-xl resize-none"
+                className="glass-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
               />
             </div>
 
-            <div className="p-3 md:p-5 border-t-4 border-[#1A1A2E] bg-[#4ECDC4]/20 rounded-b-xl flex justify-end gap-2 md:gap-3 shrink-0">
+            <div className="p-3 md:p-5 border-t border-white/10 flex justify-end gap-2 md:gap-3 shrink-0">
               <button
                 onClick={() => setIsUploadModalOpen(false)}
-                className="memphis-btn px-3 md:px-4 py-2 text-sm font-bold rounded-lg"
+                className="glass-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
               >
                 취소
               </button>
               <button
                 onClick={handleUpload}
                 disabled={!uploadInput.trim() || isUploadLoading}
-                className="memphis-btn memphis-btn-cyan px-4 md:px-6 py-2 text-sm font-bold rounded-lg flex items-center gap-2 disabled:opacity-50"
+                className="glass-btn glass-btn-teal px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
               >
                 {isUploadLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 <span className="hidden sm:inline">템플릿</span> 적용
@@ -914,53 +928,53 @@ const App = () => {
 
       {/* API Info Modal */}
       {isApiInfoOpen && (
-        <div className="fixed inset-0 bg-[#1A1A2E]/80 z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="memphis-card bg-[#FEFEFE] rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-3 md:p-5 border-b-4 border-[#1A1A2E] flex items-center justify-between sticky top-0 bg-[#9B5DE5] z-10 rounded-t-xl">
-              <h3 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-                <Cpu className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/15">
+            <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0d0d24]/95 backdrop-blur-xl z-10 rounded-t-2xl">
+              <h3 className="text-base md:text-lg font-medium text-white/90 flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-purple-400" />
                 API 연결 정보
               </h3>
               <button
                 onClick={() => setIsApiInfoOpen(false)}
-                className="memphis-btn p-1 rounded-lg"
+                className="glass-btn p-1.5 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 md:p-6 space-y-4">
               <div className="space-y-2">
-                <p className="text-xs md:text-sm text-[#1A1A2E]/70 font-bold">현재 사용 중인 모델:</p>
-                <div className="flex items-center gap-2 text-[#1A1A2E] font-mono text-sm bg-[#00D4AA]/20 px-3 py-2 rounded-xl border-3 border-[#1A1A2E] shadow-[4px_4px_0_#1A1A2E]">
-                  <div className="w-3 h-3 rounded-full bg-[#00D4AA] border-2 border-[#1A1A2E] animate-pulse"></div>
-                  gemini-2.5-flash
+                <p className="text-xs md:text-sm text-white/50 font-medium">현재 사용 중인 모델:</p>
+                <div className="flex items-center gap-2 font-mono text-sm px-3 py-2 rounded-xl glass-card" style={{ background: 'rgba(0,212,170,0.08)', borderColor: 'rgba(0,212,170,0.25)' }}>
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-emerald-300">gemini-2.5-flash</span>
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2 border-t-3 border-[#1A1A2E]">
-                <p className="text-xs md:text-sm text-[#1A1A2E]/70 font-bold">기능별 사용:</p>
-                <ul className="space-y-2 text-xs md:text-sm text-[#1A1A2E]">
-                  <li className="flex items-start gap-2 p-2 bg-[#4ECDC4]/20 rounded-lg">
-                    <Check className="w-4 h-4 text-[#00D4AA] mt-0.5 shrink-0" />
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <p className="text-xs md:text-sm text-white/50 font-medium">기능별 사용:</p>
+                <ul className="space-y-2 text-xs md:text-sm">
+                  <li className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(0,212,170,0.06)' }}>
+                    <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-bold">AI 퀵 번역기</span>
-                      <p className="text-xs text-[#1A1A2E]/60 mt-0.5">한글↔영문 텍스트 즉시 번역</p>
+                      <span className="font-medium text-white/80">AI 퀵 번역기</span>
+                      <p className="text-xs text-white/40 mt-0.5">한글↔영문 텍스트 즉시 번역</p>
                     </div>
                   </li>
-                  <li className="flex items-start gap-2 p-2 bg-[#FFE156]/20 rounded-lg">
-                    <ShieldCheck className="w-4 h-4 text-[#1A1A2E]/50 mt-0.5 shrink-0" />
+                  <li className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(139,92,246,0.06)' }}>
+                    <ShieldCheck className="w-4 h-4 text-white/30 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-bold text-[#1A1A2E]/70">템플릿 업로드 (Parse Only)</span>
-                      <p className="text-xs text-[#1A1A2E]/60 mt-0.5">API 미사용, JSON 파싱만 수행</p>
+                      <span className="font-medium text-white/60">템플릿 업로드 (Parse Only)</span>
+                      <p className="text-xs text-white/40 mt-0.5">API 미사용, JSON 파싱만 수행</p>
                     </div>
                   </li>
                 </ul>
               </div>
 
               {/* API Key Input Section */}
-              <div className="space-y-2 pt-4 border-t-3 border-[#1A1A2E]">
-                 <label className="text-xs md:text-sm font-bold text-[#1A1A2E] flex items-center gap-2">
-                   <KeyRound className="w-4 h-4 text-[#FF6B9D]" />
+              <div className="space-y-2 pt-4 border-t border-white/10">
+                 <label className="text-xs md:text-sm font-medium text-white/70 flex items-center gap-2">
+                   <KeyRound className="w-4 h-4 text-pink-400" />
                    Custom API Key
                  </label>
                  <div className="relative">
@@ -969,10 +983,10 @@ const App = () => {
                      value={userApiKey}
                      onChange={(e) => setUserApiKey(e.target.value)}
                      placeholder="Gemini API Key 입력..."
-                     className="memphis-input w-full p-2.5 rounded-lg text-sm text-[#1A1A2E] font-mono placeholder:text-[#1A1A2E]/40"
+                     className="glass-input w-full p-2.5 rounded-lg text-sm font-mono"
                    />
                  </div>
-                 <p className="text-xs text-[#1A1A2E]/60">
+                 <p className="text-xs text-white/40">
                    미입력시 기본 키 사용
                  </p>
               </div>

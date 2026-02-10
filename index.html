@@ -12,34 +12,42 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Arita Buri', 'sans-serif'],
+            sans: ['Paperlogy', 'sans-serif'],
           },
+          colors: {
+            aurora: {
+              bg: '#0a0a1a',
+              teal: '#00d4aa',
+              cyan: '#4ecdc4',
+              purple: '#a78bfa',
+              pink: '#f472b6',
+              violet: '#8b5cf6',
+              blue: '#60a5fa',
+              green: '#34d399',
+            }
+          }
         },
       },
     }
   </script>
   <link rel="stylesheet" href="/index.css">
   <style>
-    /* Custom Scrollbar for dark theme */
     ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-track {
-      background: #09090b;
+      background: rgba(255, 255, 255, 0.02);
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #27272a;
-      /* zinc-800 */
-      border-radius: 5px;
-      border: 2px solid #09090b;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: #3f3f46;
-      /* zinc-700 */
+      background: rgba(255, 255, 255, 0.18);
     }
   </style>
 </head>

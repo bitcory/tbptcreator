@@ -66,188 +66,241 @@
 }
 
 :root {
-  --memphis-pink: #FF6B9D;
-  --memphis-yellow: #FFE156;
-  --memphis-cyan: #00D4AA;
-  --memphis-blue: #4ECDC4;
-  --memphis-purple: #9B5DE5;
-  --memphis-orange: #FF9F1C;
-  --memphis-red: #F15BB5;
-  --memphis-black: #1A1A2E;
-  --memphis-white: #FEFEFE;
+  --aurora-bg: #0a0a1a;
+  --aurora-surface: rgba(255, 255, 255, 0.05);
+  --aurora-surface-hover: rgba(255, 255, 255, 0.08);
+  --aurora-glass: rgba(255, 255, 255, 0.07);
+  --aurora-glass-strong: rgba(255, 255, 255, 0.12);
+  --aurora-border: rgba(255, 255, 255, 0.12);
+  --aurora-border-bright: rgba(255, 255, 255, 0.2);
+  --aurora-text: #e8eaf6;
+  --aurora-text-muted: rgba(232, 234, 246, 0.55);
+  --aurora-teal: #00d4aa;
+  --aurora-cyan: #4ecdc4;
+  --aurora-purple: #a78bfa;
+  --aurora-pink: #f472b6;
+  --aurora-violet: #8b5cf6;
+  --aurora-blue: #60a5fa;
+  --aurora-green: #34d399;
 }
 
 body {
-  background-color: var(--memphis-white);
-  color: var(--memphis-black);
+  background-color: var(--aurora-bg);
+  color: var(--aurora-text);
   font-family: 'Paperlogy', sans-serif;
 }
 
-/* Memphis Pattern Background */
-.memphis-bg {
-  background-color: var(--memphis-white);
-  background-image:
-    radial-gradient(circle at 20% 80%, var(--memphis-pink) 3px, transparent 3px),
-    radial-gradient(circle at 80% 20%, var(--memphis-cyan) 4px, transparent 4px),
-    radial-gradient(circle at 40% 40%, var(--memphis-yellow) 2px, transparent 2px),
-    radial-gradient(circle at 60% 70%, var(--memphis-purple) 3px, transparent 3px),
-    radial-gradient(circle at 90% 90%, var(--memphis-orange) 2px, transparent 2px),
-    radial-gradient(circle at 10% 30%, var(--memphis-blue) 4px, transparent 4px);
-  background-size: 100px 100px;
-}
-
-/* Memphis Card Style */
-.memphis-card {
-  background: var(--memphis-white);
-  border: 3px solid var(--memphis-black);
-  box-shadow: 6px 6px 0 var(--memphis-black);
-  transition: all 0.2s ease;
-}
-
-.memphis-card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 var(--memphis-black);
-}
-
-/* Memphis Button */
-.memphis-btn {
-  background: var(--memphis-yellow);
-  border: 3px solid var(--memphis-black);
-  box-shadow: 4px 4px 0 var(--memphis-black);
-  font-weight: 700;
-  transition: all 0.15s ease;
-}
-
-.memphis-btn:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--memphis-black);
-}
-
-.memphis-btn:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--memphis-black);
-}
-
-.memphis-btn-pink {
-  background: var(--memphis-pink);
-  color: white;
-}
-
-.memphis-btn-cyan {
-  background: var(--memphis-cyan);
-}
-
-.memphis-btn-purple {
-  background: var(--memphis-purple);
-  color: white;
-}
-
-/* Memphis Input */
-.memphis-input {
-  background: var(--memphis-white);
-  border: 3px solid var(--memphis-black);
-  box-shadow: 4px 4px 0 var(--memphis-black);
-}
-
-.memphis-input:focus {
-  outline: none;
-  box-shadow: 6px 6px 0 var(--memphis-cyan);
-  border-color: var(--memphis-cyan);
-}
-
-/* Memphis Sidebar */
-.memphis-sidebar {
-  background: linear-gradient(180deg, #FFE156 0%, #FF6B9D 50%, #4ECDC4 100%);
-  border-right: 4px solid var(--memphis-black);
-}
-
-/* Memphis Header */
-.memphis-header {
-  background: var(--memphis-yellow);
-  border-bottom: 4px solid var(--memphis-black);
-}
-
-/* Memphis Section */
-.memphis-section {
-  background: var(--memphis-white);
-  border: 3px solid var(--memphis-black);
-  box-shadow: 4px 4px 0 var(--memphis-black);
+/* Aurora Background */
+.aurora-bg {
+  background: var(--aurora-bg);
   position: relative;
+  overflow: hidden;
+}
+
+.aurora-bg::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 30%, rgba(139, 92, 246, 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 75% 20%, rgba(0, 212, 170, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 80%, rgba(244, 114, 182, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 450px 350px at 85% 70%, rgba(96, 165, 250, 0.1) 0%, transparent 70%);
+  animation: aurora-shift 15s ease-in-out infinite alternate;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes aurora-shift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(-30px, 20px) rotate(2deg);
+  }
+  66% {
+    transform: translate(20px, -15px) rotate(-1deg);
+  }
+  100% {
+    transform: translate(-10px, 30px) rotate(1.5deg);
+  }
+}
+
+/* Glass Card */
+.glass-card {
+  background: var(--aurora-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--aurora-border);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  background: var(--aurora-glass-strong);
+  border-color: var(--aurora-border-bright);
+}
+
+/* Glass Button */
+.glass-btn {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--aurora-border);
+  color: var(--aurora-text);
+  font-weight: 500;
   transition: all 0.2s ease;
 }
 
-.memphis-section:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 var(--memphis-black);
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--aurora-border-bright);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
 }
 
-.memphis-section::before {
-  content: '';
+.glass-btn:active {
+  background: rgba(255, 255, 255, 0.06);
+  transform: scale(0.97);
+}
+
+.glass-btn-teal {
+  background: rgba(0, 212, 170, 0.15);
+  border-color: rgba(0, 212, 170, 0.3);
+  color: #6ee7c0;
+}
+
+.glass-btn-teal:hover {
+  background: rgba(0, 212, 170, 0.25);
+  border-color: rgba(0, 212, 170, 0.4);
+  box-shadow: 0 0 24px rgba(0, 212, 170, 0.15);
+}
+
+.glass-btn-pink {
+  background: rgba(244, 114, 182, 0.15);
+  border-color: rgba(244, 114, 182, 0.3);
+  color: #f9a8d4;
+}
+
+.glass-btn-pink:hover {
+  background: rgba(244, 114, 182, 0.25);
+  border-color: rgba(244, 114, 182, 0.4);
+  box-shadow: 0 0 24px rgba(244, 114, 182, 0.15);
+}
+
+.glass-btn-purple {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+}
+
+.glass-btn-purple:hover {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.15);
+}
+
+/* Glass Input */
+.glass-input {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--aurora-border);
+  color: var(--aurora-text);
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(0, 212, 170, 0.5);
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.glass-input::placeholder {
+  color: var(--aurora-text-muted);
+}
+
+/* Glass Sidebar */
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--aurora-border);
+}
+
+/* Glass Header */
+.glass-header {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--aurora-border);
+}
+
+/* Glass Section */
+.glass-section {
+  background: var(--aurora-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--aurora-border);
+  transition: all 0.3s ease;
+}
+
+.glass-section:hover {
+  background: var(--aurora-glass-strong);
+  border-color: var(--aurora-border-bright);
+}
+
+/* Aurora Orb (decorative) */
+.aurora-orb {
   position: absolute;
-  top: -8px;
-  left: 20px;
-  width: 16px;
-  height: 16px;
-  background: var(--memphis-pink);
-  border: 2px solid var(--memphis-black);
   border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  pointer-events: none;
+  animation: orb-float 8s ease-in-out infinite alternate;
 }
 
-.memphis-section::after {
-  content: '';
-  position: absolute;
-  top: -6px;
-  right: 30px;
-  width: 12px;
-  height: 12px;
-  background: var(--memphis-cyan);
-  border: 2px solid var(--memphis-black);
-  transform: rotate(45deg);
+@keyframes orb-float {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
+  100% { transform: translateY(10px) scale(0.95); }
 }
 
-/* Zigzag border */
-.zigzag-border {
-  background: repeating-linear-gradient(
-    90deg,
-    var(--memphis-black) 0px,
-    var(--memphis-black) 10px,
-    transparent 10px,
-    transparent 20px
-  );
-  height: 4px;
-}
-
-/* Dotted pattern */
-.dotted-pattern {
-  background-image: radial-gradient(var(--memphis-black) 1px, transparent 1px);
-  background-size: 8px 8px;
-}
-
-/* Scrollbar styling for Memphis */
+/* Scrollbar styling for glass theme */
 ::-webkit-scrollbar {
-  width: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--memphis-yellow);
-  border-left: 3px solid var(--memphis-black);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--memphis-pink);
-  border: 2px solid var(--memphis-black);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--memphis-purple);
+  background: rgba(255, 255, 255, 0.18);
 }
 
-/* Animation */
-@keyframes memphis-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+/* Selection */
+::selection {
+  background: rgba(139, 92, 246, 0.35);
+  color: #fff;
 }
 
-.memphis-float {
-  animation: memphis-float 3s ease-in-out infinite;
+/* Glow text utility */
+.glow-teal {
+  text-shadow: 0 0 12px rgba(0, 212, 170, 0.4);
+}
+
+.glow-purple {
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.glow-pink {
+  text-shadow: 0 0 12px rgba(244, 114, 182, 0.4);
 }
