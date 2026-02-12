@@ -27,7 +27,9 @@ import {
   KeyRound,
   Circle,
   Triangle,
-  Square
+  Square,
+  ImageIcon,
+  Film
 } from 'lucide-react';
 
 // --- Types based on PRD Schema v2.0 ---
@@ -95,6 +97,16 @@ interface Template {
   platform_configs?: any;
   color_palette?: any;
 }
+
+interface ScenePrompt {
+  id: number;
+  scene_title: string;
+  prompt: string;
+  ko_description: string;
+}
+
+type Stage = 'stage1' | 'stage2';
+type Stage2SubPage = 'image' | 'video';
 
 // --- Sample Data from User (Pixar Skeleton) ---
 const SAMPLE_TEMPLATE: Template = {
@@ -467,6 +479,124 @@ const AuroraOrbs = () => (
 );
 
 
+// --- Stage2 Content Component ---
+
+const Stage2Content = ({
+  subPage,
+  imagePrompts,
+  videoPrompts,
+  onUpload,
+}: {
+  subPage: Stage2SubPage;
+  imagePrompts: ScenePrompt[];
+  videoPrompts: ScenePrompt[];
+  onUpload: () => void;
+}) => {
+  const prompts = subPage === 'image' ? imagePrompts : videoPrompts;
+  const label = subPage === 'image' ? '이미지' : '영상';
+  const IconComp = subPage === 'image' ? ImageIcon : Film;
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+
+  const copyText = (text: string, id?: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      if (id !== undefined) {
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+      } else {
+        setCopiedAll(true);
+        setTimeout(() => setCopiedAll(false), 2000);
+      }
+    });
+  };
+
+  if (prompts.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center glass-card">
+            <IconComp className="w-10 h-10 text-white/50" />
+          </div>
+          <p className="text-lg font-medium text-white/70 mb-2">{label} 프롬프트가 없습니다</p>
+          <p className="text-sm text-white/50 mb-5">JSON 데이터를 업로드하여 씬 프롬프트를 확인하세요.</p>
+          <button
+            onClick={onUpload}
+            className="glass-btn glass-btn-teal px-5 py-2.5 rounded-lg flex items-center gap-2 mx-auto text-sm font-medium"
+          >
+            <Upload className="w-4 h-4" />
+            {label} JSON 업로드
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const allPromptsText = prompts.map(p => p.prompt).join('\n');
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 p-3 md:p-6 gap-4">
+      {/* Header */}
+      <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <IconComp className="w-5 h-5 text-purple-400" />
+            <h3 className="text-base md:text-lg font-medium text-white">{label} 프롬프트</h3>
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(0,212,170,0.15)', color: '#a7f3d0' }}>
+              {prompts.length}개 씬
+            </span>
+          </div>
+          <button
+            onClick={() => copyText(allPromptsText)}
+            className="glass-btn text-sm font-medium flex items-center gap-2 px-3 py-1.5 rounded-lg"
+          >
+            {copiedAll ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedAll ? '복사됨' : '전체 복사'}
+          </button>
+        </div>
+      </div>
+
+      {/* Scene Cards */}
+      <div className="flex-1 overflow-y-auto space-y-3 md:space-y-4">
+        {prompts.map((scene) => (
+          <div key={scene.id} className="glass-card rounded-xl overflow-hidden">
+            {/* Card Header */}
+            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-white/10 flex items-center justify-between" style={{ background: 'rgba(139,92,246,0.08)' }}>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.25)', color: '#e9e0ff' }}>
+                  #{scene.id}
+                </span>
+                <span className="text-sm md:text-base font-medium text-white">{scene.scene_title}</span>
+              </div>
+              <button
+                onClick={() => copyText(scene.prompt, scene.id)}
+                className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+              >
+                {copiedId === scene.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copiedId === scene.id ? '복사됨' : '복사'}
+              </button>
+            </div>
+
+            {/* Card Body - Split View */}
+            <div className="flex flex-col md:flex-row">
+              {/* Left: Korean Description */}
+              <div className="w-full md:w-1/2 p-3 md:p-4 md:border-r border-b md:border-b-0 border-white/10">
+                <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-medium">한국어 설명</div>
+                <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{scene.ko_description}</p>
+              </div>
+
+              {/* Right: English Prompt */}
+              <div className="w-full md:w-1/2 p-3 md:p-4" style={{ background: 'rgba(0,0,0,0.15)' }}>
+                <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-medium">English Prompt</div>
+                <p className="text-sm text-emerald-200/90 leading-relaxed font-mono whitespace-pre-wrap">{scene.prompt}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- Main Component ---
 
 const App = () => {
@@ -556,7 +686,90 @@ const App = () => {
     navigator.clipboard.writeText(text);
   };
 
+  const handleStage2Upload = () => {
+    setStage2UploadError(null);
+
+    let cleanedInput = stage2UploadInput.trim();
+    cleanedInput = cleanedInput
+      .replace(/^```(?:json|JSON)?\s*\n?/gm, '')
+      .replace(/\n?```\s*$/gm, '')
+      .trim();
+
+    try {
+      if (!cleanedInput) throw new Error('JSON 내용을 입력해주세요.');
+
+      let json;
+      try {
+        json = JSON.parse(cleanedInput);
+      } catch (parseErr: any) {
+        throw new Error(`JSON 파싱 오류: ${parseErr.message}`);
+      }
+
+      if (!Array.isArray(json)) throw new Error('JSON 배열 형식이어야 합니다.');
+
+      for (let i = 0; i < json.length; i++) {
+        const item = json[i];
+        if (typeof item.id !== 'number') throw new Error(`항목 ${i + 1}: "id" 필드가 누락되었거나 숫자가 아닙니다.`);
+        if (typeof item.scene_title !== 'string') throw new Error(`항목 ${i + 1}: "scene_title" 필드가 누락되었습니다.`);
+        if (typeof item.prompt !== 'string') throw new Error(`항목 ${i + 1}: "prompt" 필드가 누락되었습니다.`);
+        if (typeof item.ko_description !== 'string') throw new Error(`항목 ${i + 1}: "ko_description" 필드가 누락되었습니다.`);
+      }
+
+      if (stage2UploadTarget === 'image') {
+        setImagePrompts(json);
+        setStage2SubPage('image');
+      } else {
+        setVideoPrompts(json);
+        setStage2SubPage('video');
+      }
+
+      setIsStage2UploadOpen(false);
+      setStage2UploadInput('');
+      setIsSidebarOpen(false);
+    } catch (e: any) {
+      setStage2UploadError(e.message || 'JSON 파싱 오류가 발생했습니다.');
+    }
+  };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Stage 2 state
+  const [currentStage, setCurrentStage] = useState<Stage>('stage1');
+  const [stage2SubPage, setStage2SubPage] = useState<Stage2SubPage>('image');
+  const [imagePrompts, setImagePrompts] = useState<ScenePrompt[]>([]);
+  const [videoPrompts, setVideoPrompts] = useState<ScenePrompt[]>([]);
+  const [isStage2UploadOpen, setIsStage2UploadOpen] = useState(false);
+  const [stage2UploadTarget, setStage2UploadTarget] = useState<Stage2SubPage>('image');
+  const [stage2UploadInput, setStage2UploadInput] = useState('');
+  const [stage2UploadError, setStage2UploadError] = useState<string | null>(null);
+
+  // Load Stage2 data from localStorage
+  useEffect(() => {
+    try {
+      const img = localStorage.getItem('imagePrompts');
+      if (img) setImagePrompts(JSON.parse(img));
+    } catch {}
+    try {
+      const vid = localStorage.getItem('videoPrompts');
+      if (vid) setVideoPrompts(JSON.parse(vid));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (imagePrompts.length > 0) {
+      localStorage.setItem('imagePrompts', JSON.stringify(imagePrompts));
+    } else {
+      localStorage.removeItem('imagePrompts');
+    }
+  }, [imagePrompts]);
+
+  useEffect(() => {
+    if (videoPrompts.length > 0) {
+      localStorage.setItem('videoPrompts', JSON.stringify(videoPrompts));
+    } else {
+      localStorage.removeItem('videoPrompts');
+    }
+  }, [videoPrompts]);
 
   // Tab accent colors for glass theme
   const tabColors = [
@@ -591,6 +804,7 @@ const App = () => {
           </a>
         </div>
         <div className="flex items-center gap-1 md:gap-2">
+          {currentStage === 'stage1' && (
            <button
              onClick={() => setIsUploadModalOpen(true)}
              className="glass-btn glass-btn-pink flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
@@ -599,6 +813,39 @@ const App = () => {
              <Upload className="w-4 h-4" />
              <span className="hidden sm:inline">템플릿</span> 업로드
            </button>
+          )}
+          {currentStage === 'stage2' && stage2SubPage === 'image' && (
+           <button
+             onClick={() => {
+               setStage2UploadTarget('image');
+               setStage2UploadError(null);
+               setStage2UploadInput('');
+               setIsStage2UploadOpen(true);
+             }}
+             className="glass-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+             style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.3)', color: '#93c5fd' }}
+             title="이미지 JSON 업로드"
+           >
+             <Upload className="w-4 h-4" />
+             <span className="hidden sm:inline">템플릿업로드(이미지)</span>
+           </button>
+          )}
+          {currentStage === 'stage2' && stage2SubPage === 'video' && (
+           <button
+             onClick={() => {
+               setStage2UploadTarget('video');
+               setStage2UploadError(null);
+               setStage2UploadInput('');
+               setIsStage2UploadOpen(true);
+             }}
+             className="glass-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+             style={{ background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', color: '#f9a8d4' }}
+             title="영상 JSON 업로드"
+           >
+             <Upload className="w-4 h-4" />
+             <span className="hidden sm:inline">템플릿업로드(영상)</span>
+           </button>
+          )}
         </div>
       </header>
 
@@ -622,89 +869,169 @@ const App = () => {
           top-14 md:top-0 h-[calc(100vh-3.5rem)] md:h-auto
         `}>
           {/* 프롬프트 만들기 버튼 */}
-          <div className="p-3 md:p-4 border-b border-white/10">
+          <div className="p-3 md:p-4 border-b border-white/10 flex gap-2">
             <a
               href="https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
               target="_blank"
               rel="noreferrer"
-              className="group relative flex items-center justify-center gap-2.5 w-full px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 glass-btn-teal glass-btn"
+              className="group relative flex items-center justify-center gap-2 flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 glass-btn-teal glass-btn"
             >
-              <Wand2 className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200" />
-              <span className="text-base">프롬프트 만들기</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+              <Wand2 className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
+              <span className="text-sm">1단계</span>
+              <ExternalLink className="w-3 h-3 opacity-50" />
+            </a>
+            <a
+              href="https://gemini.google.com/gem/1IX4r2QFHFYEb7YkAtv-UcsRxVioJqIXr?usp=sharing"
+              target="_blank"
+              rel="noreferrer"
+              className="group relative flex items-center justify-center gap-2 flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 glass-btn-purple glass-btn"
+            >
+              <Film className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="text-sm">2단계</span>
+              <ExternalLink className="w-3 h-3 opacity-50" />
             </a>
           </div>
 
-          <div className="p-3 md:p-4 border-b border-white/10">
-            <h2 className="font-medium text-base text-white flex items-center gap-2">
-              <Layers className="w-5 h-5 text-purple-400" />
-              구조 (Structure)
-              <div className="w-2 h-2 rounded-full bg-emerald-400 ml-auto" />
-            </h2>
+          {/* Stage Tabs */}
+          <div className="p-2 md:p-3 border-b border-white/10 flex gap-1.5">
+            <button
+              onClick={() => setCurrentStage('stage1')}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                currentStage === 'stage1'
+                  ? 'glass-btn-teal text-emerald-200'
+                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+              }`}
+              style={currentStage === 'stage1' ? { background: 'rgba(0,212,170,0.15)', border: '1px solid rgba(0,212,170,0.3)' } : {}}
+            >
+              1단계 편집
+            </button>
+            <button
+              onClick={() => setCurrentStage('stage2')}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                currentStage === 'stage2'
+                  ? 'text-purple-200'
+                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+              }`}
+              style={currentStage === 'stage2' ? { background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' } : {}}
+            >
+              2단계 뷰어
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
-            {(template.prompt_sections || []).map((section, idx) => (
-              <div key={section.section_id} className="glass-card rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
-                  className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-medium text-white hover:bg-white/5 transition-colors"
-                  style={{ background: tabColors[idx % 4].bg }}
-                >
-                  {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
-                  <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
-                  {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
-                </button>
-                {expandedSection === section.section_id && (
-                  <div className="p-2 space-y-1 bg-black/20">
-                    {(section.components || []).map((comp) => (
-                      <div
-                        key={comp.component_id}
-                        onClick={() => {
-                          setActiveTab(idx);
-                          setTimeout(() => {
-                            const el = document.getElementById(`comp-${comp.component_id}`);
-                            if (el) {
-                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              el.classList.add('ring-2', 'ring-purple-400/50');
-                              setTimeout(() => el.classList.remove('ring-2', 'ring-purple-400/50'), 2000);
-                            }
-                          }, 50);
-                          setIsSidebarOpen(false);
-                        }}
-                        className="pl-2 flex items-center gap-2 text-sm text-white/70 py-1.5 md:py-1 hover:bg-white/5 hover:text-white rounded-lg cursor-pointer transition-colors font-normal"
-                      >
-                        <Box className="w-3 h-3 text-purple-400/70" />
-                        <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
-                        {(comp.is_active !== false) && <Check className="w-3 h-3 text-emerald-400/70 ml-auto mr-1" />}
+          {/* Stage 1 Sidebar Content */}
+          {currentStage === 'stage1' && (
+            <>
+              <div className="p-3 md:p-4 border-b border-white/10">
+                <h2 className="font-medium text-base text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-purple-400" />
+                  구조 (Structure)
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 ml-auto" />
+                </h2>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+                {(template.prompt_sections || []).map((section, idx) => (
+                  <div key={section.section_id} className="glass-card rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
+                      className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-medium text-white hover:bg-white/5 transition-colors"
+                      style={{ background: tabColors[idx % 4].bg }}
+                    >
+                      {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
+                      <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
+                      {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
+                    </button>
+                    {expandedSection === section.section_id && (
+                      <div className="p-2 space-y-1 bg-black/20">
+                        {(section.components || []).map((comp) => (
+                          <div
+                            key={comp.component_id}
+                            onClick={() => {
+                              setActiveTab(idx);
+                              setTimeout(() => {
+                                const el = document.getElementById(`comp-${comp.component_id}`);
+                                if (el) {
+                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  el.classList.add('ring-2', 'ring-purple-400/50');
+                                  setTimeout(() => el.classList.remove('ring-2', 'ring-purple-400/50'), 2000);
+                                }
+                              }, 50);
+                              setIsSidebarOpen(false);
+                            }}
+                            className="pl-2 flex items-center gap-2 text-sm text-white/70 py-1.5 md:py-1 hover:bg-white/5 hover:text-white rounded-lg cursor-pointer transition-colors font-normal"
+                          >
+                            <Box className="w-3 h-3 text-purple-400/70" />
+                            <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
+                            {(comp.is_active !== false) && <Check className="w-3 h-3 text-emerald-400/70 ml-auto mr-1" />}
+                          </div>
+                        ))}
+                        {(!section.components || section.components.length === 0) && (
+                           <div className="pl-2 text-xs text-white/50 italic py-1">하위 요소 없음</div>
+                        )}
                       </div>
-                    ))}
-                    {(!section.components || section.components.length === 0) && (
-                       <div className="pl-2 text-xs text-white/50 italic py-1">하위 요소 없음</div>
                     )}
+                  </div>
+                ))}
+
+                {(!template.prompt_sections || template.prompt_sections.length === 0) && (
+                  <div className="text-center py-10 px-4 text-white/60 text-sm">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center glass-card">
+                      <FileJson className="w-8 h-8 text-white/60" />
+                    </div>
+                    <p className="font-medium">로드된 템플릿이 없습니다.</p>
+                    <button
+                      onClick={() => {
+                        setIsUploadModalOpen(true);
+                      }}
+                      className="mt-3 glass-btn glass-btn-teal px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
+                    >
+                      <Play className="w-3 h-3" />
+                      JSON 업로드 시작
+                    </button>
                   </div>
                 )}
               </div>
-            ))}
+            </>
+          )}
 
-            {(!template.prompt_sections || template.prompt_sections.length === 0) && (
-              <div className="text-center py-10 px-4 text-white/60 text-sm">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center glass-card">
-                  <FileJson className="w-8 h-8 text-white/60" />
-                </div>
-                <p className="font-medium">로드된 템플릿이 없습니다.</p>
-                <button
-                  onClick={() => {
-                    setIsUploadModalOpen(true);
-                  }}
-                  className="mt-3 glass-btn glass-btn-teal px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
-                >
-                  <Play className="w-3 h-3" />
-                  JSON 업로드 시작
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Stage 2 Sidebar Content */}
+          {currentStage === 'stage2' && (
+            <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+              {/* Image / Video sub-page buttons */}
+              <button
+                onClick={() => setStage2SubPage('image')}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
+                  stage2SubPage === 'image' ? 'text-white' : 'text-white/60 hover:text-white/80 hover:bg-white/5'
+                }`}
+                style={stage2SubPage === 'image' ? { background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)' } : {}}
+              >
+                <ImageIcon className="w-5 h-5 text-blue-400" />
+                <span className="flex-1 text-left">이미지 프롬프트</span>
+                {imagePrompts.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(96,165,250,0.25)', color: '#93c5fd' }}>
+                    {imagePrompts.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setStage2SubPage('video')}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
+                  stage2SubPage === 'video' ? 'text-white' : 'text-white/60 hover:text-white/80 hover:bg-white/5'
+                }`}
+                style={stage2SubPage === 'video' ? { background: 'rgba(244,114,182,0.12)', border: '1px solid rgba(244,114,182,0.3)' } : {}}
+              >
+                <Film className="w-5 h-5 text-pink-400" />
+                <span className="flex-1 text-left">영상 프롬프트</span>
+                {videoPrompts.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(244,114,182,0.25)', color: '#f9a8d4' }}>
+                    {videoPrompts.length}
+                  </span>
+                )}
+              </button>
+
+            </div>
+          )}
 
           {/* SIDEBAR FOOTER: External Tools */}
           <div className="p-3 md:p-4 border-t border-white/10">
@@ -723,7 +1050,8 @@ const App = () => {
 
         {/* RIGHT PANEL: Editor & Output */}
         <main className="flex-1 flex flex-col min-w-0 relative">
-          {/* Middle: Prompt Output + Visual Editor */}
+          {currentStage === 'stage1' ? (
+          /* Stage 1: Prompt Editor */
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
             {/* 최종 프롬프트 영역 */}
             <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
@@ -865,6 +1193,20 @@ const App = () => {
               </div>
             </div>
             </div>
+          ) : (
+          /* Stage 2: Image/Video Prompt Viewer */
+          <Stage2Content
+            subPage={stage2SubPage}
+            imagePrompts={imagePrompts}
+            videoPrompts={videoPrompts}
+            onUpload={() => {
+              setStage2UploadTarget(stage2SubPage);
+              setStage2UploadError(null);
+              setStage2UploadInput('');
+              setIsStage2UploadOpen(true);
+            }}
+          />
+          )}
         </main>
       </div>
 
@@ -920,6 +1262,68 @@ const App = () => {
               >
                 {isUploadLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 <span className="hidden sm:inline">템플릿</span> 적용
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage2 Upload Modal */}
+      {isStage2UploadOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] border border-white/15">
+            <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between shrink-0">
+              <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
+                {stage2UploadTarget === 'image' ? <ImageIcon className="w-5 h-5 text-blue-400" /> : <Film className="w-5 h-5 text-pink-400" />}
+                {stage2UploadTarget === 'image' ? '이미지' : '영상'} 프롬프트 JSON 불러오기
+              </h3>
+              <button
+                onClick={() => setIsStage2UploadOpen(false)}
+                className="glass-btn glass-btn-pink p-1.5 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 md:p-6 flex-1 overflow-hidden flex flex-col">
+              {stage2UploadError && (
+                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0"
+                  style={{ background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.3)' }}
+                >
+                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-pink-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-pink-300">오류 발생</p>
+                    <p className="text-white/80">{stage2UploadError}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-3 p-2.5 rounded-lg text-xs text-white/60 shrink-0" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                JSON 배열 형식: [{"{"} "id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..." {"}"}]
+              </div>
+
+              <textarea
+                value={stage2UploadInput}
+                onChange={(e) => setStage2UploadInput(e.target.value)}
+                placeholder='[{"id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..."}]'
+                className="glass-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
+              />
+            </div>
+
+            <div className="p-3 md:p-5 border-t border-white/10 flex justify-end gap-2 md:gap-3 shrink-0">
+              <button
+                onClick={() => setIsStage2UploadOpen(false)}
+                className="glass-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleStage2Upload}
+                disabled={!stage2UploadInput.trim()}
+                className="glass-btn glass-btn-teal px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
+              >
+                <Upload className="w-4 h-4" />
+                적용
               </button>
             </div>
           </div>
