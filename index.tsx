@@ -485,18 +485,33 @@ const Stage2Content = ({
   subPage,
   imagePrompts,
   videoPrompts,
+  setImagePrompts,
+  setVideoPrompts,
   onUpload,
 }: {
   subPage: Stage2SubPage;
   imagePrompts: ScenePrompt[];
   videoPrompts: ScenePrompt[];
+  setImagePrompts: React.Dispatch<React.SetStateAction<ScenePrompt[]>>;
+  setVideoPrompts: React.Dispatch<React.SetStateAction<ScenePrompt[]>>;
   onUpload: () => void;
 }) => {
   const prompts = subPage === 'image' ? imagePrompts : videoPrompts;
+  const setPrompts = subPage === 'image' ? setImagePrompts : setVideoPrompts;
   const label = subPage === 'image' ? '이미지' : '영상';
   const IconComp = subPage === 'image' ? ImageIcon : Film;
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
+
+  const updatePrompt = (id: number, newPrompt: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? { ...p, prompt: newPrompt } : p));
+  };
+
+  const pasteToPrompt = (id: number) => {
+    navigator.clipboard.readText().then(text => {
+      updatePrompt(id, text);
+    });
+  };
 
   const copyText = (text: string, id?: number) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -567,13 +582,22 @@ const Stage2Content = ({
                 </span>
                 <span className="text-sm md:text-base font-medium text-white">{scene.scene_title}</span>
               </div>
-              <button
-                onClick={() => copyText(scene.prompt, scene.id)}
-                className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
-              >
-                {copiedId === scene.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                {copiedId === scene.id ? '복사됨' : '복사'}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => pasteToPrompt(scene.id)}
+                  className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+                >
+                  <ClipboardPaste className="w-3 h-3" />
+                  붙여넣기
+                </button>
+                <button
+                  onClick={() => copyText(scene.prompt, scene.id)}
+                  className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+                >
+                  {copiedId === scene.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedId === scene.id ? '복사됨' : '복사'}
+                </button>
+              </div>
             </div>
 
             {/* Card Body - Split View */}
@@ -587,7 +611,12 @@ const Stage2Content = ({
               {/* Right: English Prompt */}
               <div className="w-full md:w-1/2 p-3 md:p-4" style={{ background: 'rgba(0,0,0,0.15)' }}>
                 <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-medium">English Prompt</div>
-                <p className="text-sm text-emerald-200/90 leading-relaxed font-mono whitespace-pre-wrap">{scene.prompt}</p>
+                <textarea
+                  value={scene.prompt}
+                  onChange={(e) => updatePrompt(scene.id, e.target.value)}
+                  className="w-full text-sm text-emerald-200/90 leading-relaxed font-mono whitespace-pre-wrap bg-transparent border border-white/10 rounded-lg p-2 resize-y min-h-[60px] focus:outline-none focus:border-purple-500/50 transition-colors"
+                  rows={3}
+                />
               </div>
             </div>
           </div>
@@ -1199,6 +1228,8 @@ const App = () => {
             subPage={stage2SubPage}
             imagePrompts={imagePrompts}
             videoPrompts={videoPrompts}
+            setImagePrompts={setImagePrompts}
+            setVideoPrompts={setVideoPrompts}
             onUpload={() => {
               setStage2UploadTarget(stage2SubPage);
               setStage2UploadError(null);
