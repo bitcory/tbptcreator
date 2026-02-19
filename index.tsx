@@ -31,9 +31,7 @@ import {
   ImageIcon,
   Film,
   Lock,
-  Palette,
-  Camera,
-  Clapperboard
+  Palette
 } from 'lucide-react';
 
 // --- Types based on PRD Schema v2.0 + V5.0 Lite ---
@@ -54,17 +52,6 @@ interface GlobalSettings {
   section_separator: string;
   auto_capitalize: boolean;
   remove_duplicates: boolean;
-}
-
-interface ImageContextValue {
-  value: string;
-  value_ko?: string;
-}
-
-interface ImageContext {
-  genre?: string;
-  style?: ImageContextValue;
-  camera?: ImageContextValue;
 }
 
 interface ColorPalette {
@@ -112,7 +99,6 @@ interface Section {
 
 interface Template {
   meta_data: MetaData;
-  image_context?: ImageContext;
   global_settings?: GlobalSettings;
   variables?: any[];
   prompt_sections: Section[];
@@ -686,27 +672,28 @@ const App = () => {
   // V5.0 Lite JSON 정규화: 간소화된 필드에 기본값 채움
   const normalizeTemplate = (json: any): any => {
     // component_id → 사람이 읽기 좋은 레이블 변환
+    const compLabelMap: Record<string, { en: string; ko: string }> = {
+      comp_character: { en: 'Character', ko: '캐릭터' },
+      comp_landscape: { en: 'Landscape', ko: '풍경' },
+      comp_object: { en: 'Object', ko: '사물' },
+      comp_creature: { en: 'Creature', ko: '생물' },
+      comp_env: { en: 'Environment', ko: '환경' },
+      comp_camera: { en: 'Camera', ko: '카메라' },
+      comp_style: { en: 'Style', ko: '스타일' },
+      comp_outfit: { en: 'Outfit', ko: '복장' },
+      comp_props: { en: 'Props', ko: '소품' },
+      comp_background: { en: 'Background', ko: '배경' },
+      comp_lighting: { en: 'Lighting', ko: '조명' },
+      comp_camera_settings: { en: 'Camera Settings', ko: '카메라 설정' },
+      comp_render: { en: 'Render Style', ko: '렌더링 스타일' },
+    };
+
     const compIdToLabel = (id: string): string => {
-      const map: Record<string, { en: string; ko: string }> = {
-        comp_character: { en: 'Character', ko: '캐릭터' },
-        comp_landscape: { en: 'Landscape', ko: '풍경' },
-        comp_object: { en: 'Object', ko: '사물' },
-        comp_creature: { en: 'Creature', ko: '생물' },
-        comp_env: { en: 'Environment', ko: '환경/조명' },
-      };
-      if (map[id]) return map[id].ko;
-      return id.replace(/^comp_/, '').replace(/_/g, ' ');
+      return compLabelMap[id]?.ko || id.replace(/^comp_/, '').replace(/_/g, ' ');
     };
 
     const compIdToLabelEn = (id: string): string => {
-      const map: Record<string, string> = {
-        comp_character: 'Character',
-        comp_landscape: 'Landscape',
-        comp_object: 'Object',
-        comp_creature: 'Creature',
-        comp_env: 'Environment',
-      };
-      return map[id] || id.replace(/^comp_/, '').replace(/_/g, ' ');
+      return compLabelMap[id]?.en || id.replace(/^comp_/, '').replace(/_/g, ' ');
     };
 
     // meta_data 정규화
@@ -1190,61 +1177,31 @@ const App = () => {
           {currentStage === 'stage1' ? (
           /* Stage 1: Prompt Editor */
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
-            {/* image_context & color_palette 정보 패널 */}
-            {(template.image_context || template.color_palette) && (
+            {/* color_palette 정보 패널 */}
+            {template.color_palette && (template.color_palette.primary || template.color_palette.secondary || template.color_palette.accent) && (
               <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
                 <div className="flex flex-wrap gap-3 md:gap-4 items-start">
-                  {/* Genre */}
-                  {template.image_context?.genre && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
-                      <Clapperboard className="w-3.5 h-3.5 text-purple-400" />
-                      <span className="text-white/60 font-medium">장르</span>
-                      <span className="text-purple-300 font-medium">{template.image_context.genre}</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(244,114,182,0.10)', border: '1px solid rgba(244,114,182,0.25)' }}>
+                    <Palette className="w-3.5 h-3.5 text-pink-400" />
+                    <span className="text-white/60 font-medium">컬러 팔레트</span>
+                    <div className="flex items-center gap-1.5">
+                      {template.color_palette.primary && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Primary">
+                          {template.color_palette.primary}
+                        </span>
+                      )}
+                      {template.color_palette.secondary && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Secondary">
+                          {template.color_palette.secondary}
+                        </span>
+                      )}
+                      {template.color_palette.accent && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Accent">
+                          {template.color_palette.accent}
+                        </span>
+                      )}
                     </div>
-                  )}
-
-                  {/* Style */}
-                  {template.image_context?.style && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(0,212,170,0.10)', border: '1px solid rgba(0,212,170,0.25)' }}>
-                      <Wand2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-white/60 font-medium">스타일</span>
-                      <span className="text-emerald-300 font-medium">{template.image_context.style.value_ko || template.image_context.style.value}</span>
-                    </div>
-                  )}
-
-                  {/* Camera */}
-                  {template.image_context?.camera && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(96,165,250,0.10)', border: '1px solid rgba(96,165,250,0.25)' }}>
-                      <Camera className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-white/60 font-medium">카메라</span>
-                      <span className="text-blue-300 font-medium">{template.image_context.camera.value_ko || template.image_context.camera.value}</span>
-                    </div>
-                  )}
-
-                  {/* Color Palette */}
-                  {template.color_palette && (template.color_palette.primary || template.color_palette.secondary || template.color_palette.accent) && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(244,114,182,0.10)', border: '1px solid rgba(244,114,182,0.25)' }}>
-                      <Palette className="w-3.5 h-3.5 text-pink-400" />
-                      <span className="text-white/60 font-medium">컬러</span>
-                      <div className="flex items-center gap-1.5">
-                        {template.color_palette.primary && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Primary">
-                            {template.color_palette.primary}
-                          </span>
-                        )}
-                        {template.color_palette.secondary && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Secondary">
-                            {template.color_palette.secondary}
-                          </span>
-                        )}
-                        {template.color_palette.accent && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Accent">
-                            {template.color_palette.accent}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
