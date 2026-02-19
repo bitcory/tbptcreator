@@ -531,7 +531,7 @@ const Stage2Content = ({
     );
   }
 
-  const allPromptsText = prompts.map(p => p.prompt).join('\n');
+  const allPromptsText = prompts.map(p => p.prompt).join('\n\n');
 
   return (
     <div className="flex-1 flex flex-col min-h-0 p-3 md:p-6 gap-4">
