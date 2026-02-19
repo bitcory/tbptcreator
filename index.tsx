@@ -29,14 +29,18 @@ import {
   Triangle,
   Square,
   ImageIcon,
-  Film
+  Film,
+  Lock,
+  Palette,
+  Camera,
+  Clapperboard
 } from 'lucide-react';
 
-// --- Types based on PRD Schema v2.0 ---
+// --- Types based on PRD Schema v2.0 + V5.0 Lite ---
 
 interface MetaData {
   template_name: string;
-  template_id: string;
+  template_id?: string;
   version: string;
   author?: string;
   description?: string;
@@ -52,6 +56,23 @@ interface GlobalSettings {
   remove_duplicates: boolean;
 }
 
+interface ImageContextValue {
+  value: string;
+  value_ko?: string;
+}
+
+interface ImageContext {
+  genre?: string;
+  style?: ImageContextValue;
+  camera?: ImageContextValue;
+}
+
+interface ColorPalette {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+}
+
 interface Attribute {
   attr_id: string;
   label: string;
@@ -61,6 +82,7 @@ interface Attribute {
   value_ko?: string;
   options?: string[] | { value: string; label: string; label_ko?: string }[];
   is_active: boolean;
+  is_locked?: boolean;
   prefix?: string;
   weight?: { enabled: boolean; value: number };
   platform_overrides?: Record<string, any>;
@@ -90,12 +112,13 @@ interface Section {
 
 interface Template {
   meta_data: MetaData;
+  image_context?: ImageContext;
   global_settings?: GlobalSettings;
   variables?: any[];
   prompt_sections: Section[];
   presets?: any[];
   platform_configs?: any;
-  color_palette?: any;
+  color_palette?: ColorPalette;
 }
 
 interface ScenePrompt {
@@ -660,6 +683,88 @@ const App = () => {
     } catch (err) { console.error("Error updating attribute:", err); }
   };
 
+  // V5.0 Lite JSON 정규화: 간소화된 필드에 기본값 채움
+  const normalizeTemplate = (json: any): any => {
+    // component_id → 사람이 읽기 좋은 레이블 변환
+    const compIdToLabel = (id: string): string => {
+      const map: Record<string, { en: string; ko: string }> = {
+        comp_character: { en: 'Character', ko: '캐릭터' },
+        comp_landscape: { en: 'Landscape', ko: '풍경' },
+        comp_object: { en: 'Object', ko: '사물' },
+        comp_creature: { en: 'Creature', ko: '생물' },
+        comp_env: { en: 'Environment', ko: '환경/조명' },
+      };
+      if (map[id]) return map[id].ko;
+      return id.replace(/^comp_/, '').replace(/_/g, ' ');
+    };
+
+    const compIdToLabelEn = (id: string): string => {
+      const map: Record<string, string> = {
+        comp_character: 'Character',
+        comp_landscape: 'Landscape',
+        comp_object: 'Object',
+        comp_creature: 'Creature',
+        comp_env: 'Environment',
+      };
+      return map[id] || id.replace(/^comp_/, '').replace(/_/g, ' ');
+    };
+
+    // meta_data 정규화
+    if (json.meta_data) {
+      if (!json.meta_data.template_id) {
+        json.meta_data.template_id = json.meta_data.template_name
+          ? 'tpl_' + json.meta_data.template_name.toLowerCase().replace(/\s+/g, '_').substring(0, 30)
+          : 'tpl_uploaded';
+      }
+    } else {
+      json.meta_data = { template_name: 'Uploaded Template', template_id: 'tpl_uploaded', version: '1.0.0' };
+    }
+
+    // prompt_sections 정규화
+    if (Array.isArray(json.prompt_sections)) {
+      json.prompt_sections = json.prompt_sections.map((section: any, sIdx: number) => {
+        // section 기본값
+        if (!section.section_label) {
+          section.section_label = section.section_label_ko || section.section_id || `Section ${sIdx + 1}`;
+        }
+        if (section.is_active === undefined) section.is_active = true;
+
+        // components 정규화
+        if (Array.isArray(section.components)) {
+          section.components = section.components.map((comp: any) => {
+            if (!comp.component_label) {
+              comp.component_label = compIdToLabelEn(comp.component_id || 'unknown');
+            }
+            if (!comp.component_label_ko) {
+              comp.component_label_ko = compIdToLabel(comp.component_id || 'unknown');
+            }
+            if (comp.is_active === undefined) comp.is_active = true;
+
+            // attributes 정규화
+            if (Array.isArray(comp.attributes)) {
+              comp.attributes = comp.attributes.map((attr: any) => {
+                if (!attr.label) {
+                  attr.label = attr.label_ko || attr.attr_id || 'Unknown';
+                }
+                if (!attr.type) attr.type = 'textarea';
+                if (attr.is_active === undefined) attr.is_active = true;
+                return attr;
+              });
+            } else {
+              comp.attributes = [];
+            }
+            return comp;
+          });
+        } else {
+          section.components = [];
+        }
+        return section;
+      });
+    }
+
+    return json;
+  };
+
   const handleUpload = () => {
     setUploadError(null);
     setIsUploadLoading(true);
@@ -692,6 +797,9 @@ const App = () => {
         }
         json.prompt_sections = [];
       }
+
+      // V5.0 Lite 호환: 간소화된 필드 정규화
+      json = normalizeTemplate(json);
 
       console.log('[handleUpload] Successfully parsed template:', json.meta_data?.template_name || 'Unknown');
 
@@ -1082,6 +1190,65 @@ const App = () => {
           {currentStage === 'stage1' ? (
           /* Stage 1: Prompt Editor */
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
+            {/* image_context & color_palette 정보 패널 */}
+            {(template.image_context || template.color_palette) && (
+              <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
+                <div className="flex flex-wrap gap-3 md:gap-4 items-start">
+                  {/* Genre */}
+                  {template.image_context?.genre && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                      <Clapperboard className="w-3.5 h-3.5 text-purple-400" />
+                      <span className="text-white/60 font-medium">장르</span>
+                      <span className="text-purple-300 font-medium">{template.image_context.genre}</span>
+                    </div>
+                  )}
+
+                  {/* Style */}
+                  {template.image_context?.style && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(0,212,170,0.10)', border: '1px solid rgba(0,212,170,0.25)' }}>
+                      <Wand2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-white/60 font-medium">스타일</span>
+                      <span className="text-emerald-300 font-medium">{template.image_context.style.value_ko || template.image_context.style.value}</span>
+                    </div>
+                  )}
+
+                  {/* Camera */}
+                  {template.image_context?.camera && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(96,165,250,0.10)', border: '1px solid rgba(96,165,250,0.25)' }}>
+                      <Camera className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-white/60 font-medium">카메라</span>
+                      <span className="text-blue-300 font-medium">{template.image_context.camera.value_ko || template.image_context.camera.value}</span>
+                    </div>
+                  )}
+
+                  {/* Color Palette */}
+                  {template.color_palette && (template.color_palette.primary || template.color_palette.secondary || template.color_palette.accent) && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(244,114,182,0.10)', border: '1px solid rgba(244,114,182,0.25)' }}>
+                      <Palette className="w-3.5 h-3.5 text-pink-400" />
+                      <span className="text-white/60 font-medium">컬러</span>
+                      <div className="flex items-center gap-1.5">
+                        {template.color_palette.primary && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Primary">
+                            {template.color_palette.primary}
+                          </span>
+                        )}
+                        {template.color_palette.secondary && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Secondary">
+                            {template.color_palette.secondary}
+                          </span>
+                        )}
+                        {template.color_palette.accent && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Accent">
+                            {template.color_palette.accent}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 최종 프롬프트 영역 */}
             <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
@@ -1165,6 +1332,12 @@ const App = () => {
                                        <label className="text-sm md:text-base font-medium text-white flex items-center gap-2 truncate">
                                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tc.dot }} />
                                          {attr.label_ko || attr.label}
+                                         {attr.is_locked && (
+                                           <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>
+                                             <Lock className="w-2.5 h-2.5" />
+                                             고정
+                                           </span>
+                                         )}
                                          {(attr.is_active === false) && <span className="text-[10px] text-pink-400 font-medium">(Inactive)</span>}
                                        </label>
                                        <CopyButton value={getDisplayValue(attr, attr.value)} />
