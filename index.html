@@ -14,44 +14,52 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Paperlogy', 'sans-serif'],
+            sans: ['Paperlogy', 'Inter', 'Noto Sans KR', 'sans-serif'],
           },
           colors: {
-            aurora: {
-              bg: '#0a0a1a',
-              teal: '#00d4aa',
-              cyan: '#4ecdc4',
-              purple: '#a78bfa',
-              pink: '#f472b6',
-              violet: '#8b5cf6',
-              blue: '#60a5fa',
-              green: '#34d399',
-            }
-          }
+            background: 'rgb(var(--background) / <alpha-value>)',
+            foreground: 'rgb(var(--foreground) / <alpha-value>)',
+            primary: 'rgb(var(--primary) / <alpha-value>)',
+            'primary-foreground': 'rgb(var(--primary-foreground) / <alpha-value>)',
+            secondary: 'rgb(var(--secondary) / <alpha-value>)',
+            'secondary-foreground': 'rgb(var(--secondary-foreground) / <alpha-value>)',
+            success: 'rgb(var(--success) / <alpha-value>)',
+            warning: 'rgb(var(--warning) / <alpha-value>)',
+            danger: 'rgb(var(--danger) / <alpha-value>)',
+            'danger-foreground': 'rgb(var(--danger-foreground) / <alpha-value>)',
+            content1: 'rgb(var(--content1) / <alpha-value>)',
+            content2: 'rgb(var(--content2) / <alpha-value>)',
+            content3: 'rgb(var(--content3) / <alpha-value>)',
+            content4: 'rgb(var(--content4) / <alpha-value>)',
+          },
+          borderWidth: {
+            '3': '3px',
+          },
+          boxShadow: {
+            'neo-sm': 'var(--shadow-sm)',
+            'neo-md': 'var(--shadow-md)',
+            'neo-lg': 'var(--shadow-lg)',
+            'neo-none': 'none',
+          },
+          animation: {
+            'scale-in': 'scale-in 0.2s ease-out',
+            'card-enter': 'card-enter 0.3s ease both',
+          },
+          keyframes: {
+            'scale-in': {
+              '0%': { transform: 'scale(0.95)', opacity: '0' },
+              '100%': { transform: 'scale(1)', opacity: '1' },
+            },
+            'card-enter': {
+              '0%': { opacity: '0', transform: 'translateY(12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+          },
         },
       },
     }
   </script>
   <link rel="stylesheet" href="/index.css">
-  <style>
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.18);
-    }
-  </style>
 </head>
 
 <body>

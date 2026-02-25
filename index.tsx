@@ -427,13 +427,13 @@ const CopyButton = ({ value }: { value: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg"
+      className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg"
       title="값 복사"
     >
       {copied ? (
         <>
-          <Check className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[10px] text-emerald-400 font-medium">복사됨</span>
+          <Check className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[10px] text-primary font-medium">복사됨</span>
         </>
       ) : (
         <>
@@ -456,7 +456,7 @@ const PasteButton = ({ onPaste }: { onPaste: (text: string) => void }) => {
           // clipboard permission denied
         }
       }}
-      className="glass-btn glass-btn-pink px-2 py-1 flex items-center gap-1.5 rounded-lg"
+      className="neo-btn neo-btn-danger px-2 py-1 flex items-center gap-1.5 rounded-lg"
       title="클립보드 붙여넣기"
     >
       <ClipboardPaste className="w-3.5 h-3.5" />
@@ -465,27 +465,6 @@ const PasteButton = ({ onPaste }: { onPaste: (text: string) => void }) => {
   );
 };
 
-// Aurora Decorative Orbs
-const AuroraOrbs = () => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-    <div
-      className="aurora-orb w-[500px] h-[500px] top-[-10%] left-[10%]"
-      style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%)', animationDelay: '0s', animationDuration: '10s' }}
-    />
-    <div
-      className="aurora-orb w-[400px] h-[400px] top-[20%] right-[-5%]"
-      style={{ background: 'radial-gradient(circle, rgba(0,212,170,0.25) 0%, transparent 70%)', animationDelay: '2s', animationDuration: '12s' }}
-    />
-    <div
-      className="aurora-orb w-[350px] h-[350px] bottom-[5%] left-[30%]"
-      style={{ background: 'radial-gradient(circle, rgba(244,114,182,0.2) 0%, transparent 70%)', animationDelay: '4s', animationDuration: '14s' }}
-    />
-    <div
-      className="aurora-orb w-[300px] h-[300px] bottom-[20%] right-[20%]"
-      style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.2) 0%, transparent 70%)', animationDelay: '1s', animationDuration: '11s' }}
-    />
-  </div>
-);
 
 
 // --- Stage2 Content Component ---
@@ -538,14 +517,14 @@ const Stage2Content = ({
     return (
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center glass-card">
-            <IconComp className="w-10 h-10 text-white/50" />
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+            <IconComp className="w-10 h-10 text-foreground/50" />
           </div>
-          <p className="text-lg font-medium text-white/70 mb-2">{label} 프롬프트가 없습니다</p>
-          <p className="text-sm text-white/50 mb-5">JSON 데이터를 업로드하여 씬 프롬프트를 확인하세요.</p>
+          <p className="text-lg font-bold text-foreground/70 mb-2">{label} 프롬프트가 없습니다</p>
+          <p className="text-sm text-foreground/50 mb-5">JSON 데이터를 업로드하여 씬 프롬프트를 확인하세요.</p>
           <button
             onClick={onUpload}
-            className="glass-btn glass-btn-teal px-5 py-2.5 rounded-lg flex items-center gap-2 mx-auto text-sm font-medium"
+            className="neo-btn neo-btn-primary px-5 py-2.5 rounded-lg flex items-center gap-2 mx-auto text-sm font-medium"
           >
             <Upload className="w-4 h-4" />
             {label} JSON 업로드
@@ -560,20 +539,20 @@ const Stage2Content = ({
   return (
     <div className="flex-1 flex flex-col min-h-0 p-3 md:p-6 gap-4">
       {/* Header */}
-      <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
+      <div className="shrink-0 neo-card-static rounded-xl p-3 md:p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <IconComp className="w-5 h-5 text-purple-400" />
-            <h3 className="text-base md:text-lg font-medium text-white">{label} 프롬프트</h3>
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(0,212,170,0.15)', color: '#a7f3d0' }}>
+            <IconComp className="w-5 h-5 text-secondary" />
+            <h3 className="text-base md:text-lg font-black text-foreground uppercase">{label} 프롬프트</h3>
+            <span className="memphis-badge text-xs">
               {prompts.length}개 씬
             </span>
           </div>
           <button
             onClick={() => copyText(allPromptsText)}
-            className="glass-btn text-sm font-medium flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            className="neo-btn text-sm font-medium flex items-center gap-2 px-3 py-1.5 rounded-lg"
           >
-            {copiedAll ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedAll ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
             {copiedAll ? '복사됨' : '전체 복사'}
           </button>
         </div>
@@ -582,28 +561,28 @@ const Stage2Content = ({
       {/* Scene Cards */}
       <div className="flex-1 overflow-y-auto space-y-3 md:space-y-4">
         {prompts.map((scene) => (
-          <div key={scene.id} className="glass-card rounded-xl overflow-hidden">
+          <div key={scene.id} className="neo-card-static rounded-xl overflow-hidden">
             {/* Card Header */}
-            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-white/10 flex items-center justify-between" style={{ background: 'rgba(139,92,246,0.08)' }}>
+            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground flex items-center justify-between bg-content4">
               <div className="flex items-center gap-2.5">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.25)', color: '#e9e0ff' }}>
+                <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">
                   #{scene.id}
                 </span>
-                <span className="text-sm md:text-base font-medium text-white">{scene.scene_title}</span>
+                <span className="text-sm md:text-base font-medium text-foreground">{scene.scene_title}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => pasteToPrompt(scene.id)}
-                  className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+                  className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
                 >
                   <ClipboardPaste className="w-3 h-3" />
                   붙여넣기
                 </button>
                 <button
                   onClick={() => copyText(scene.prompt, scene.id)}
-                  className="glass-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+                  className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
                 >
-                  {copiedId === scene.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedId === scene.id ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
                   {copiedId === scene.id ? '복사됨' : '복사'}
                 </button>
               </div>
@@ -612,18 +591,18 @@ const Stage2Content = ({
             {/* Card Body - Split View */}
             <div className="flex flex-col md:flex-row">
               {/* Left: Korean Description */}
-              <div className="w-full md:w-1/2 p-3 md:p-4 md:border-r border-b md:border-b-0 border-white/10">
-                <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-medium">한국어 설명</div>
-                <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{scene.ko_description}</p>
+              <div className="w-full md:w-1/2 p-3 md:p-4 md:border-r-2 border-b-2 md:border-b-0 border-foreground/20">
+                <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
+                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.ko_description}</p>
               </div>
 
               {/* Right: English Prompt */}
-              <div className="w-full md:w-1/2 p-3 md:p-4" style={{ background: 'rgba(0,0,0,0.15)' }}>
-                <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-medium">English Prompt</div>
+              <div className="w-full md:w-1/2 p-3 md:p-4 bg-content2">
+                <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
                 <textarea
                   value={scene.prompt}
                   onChange={(e) => updatePrompt(scene.id, e.target.value)}
-                  className="w-full text-sm text-emerald-200/90 leading-relaxed font-mono whitespace-pre-wrap bg-transparent border border-white/10 rounded-lg p-2 resize-y min-h-[60px] focus:outline-none focus:border-purple-500/50 transition-colors"
+                  className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
                   rows={3}
                 />
               </div>
@@ -895,24 +874,22 @@ const App = () => {
     }
   }, [videoPrompts]);
 
-  // Tab accent colors for glass theme
+  // Tab accent colors for neobrutalism theme
   const tabColors = [
-    { bg: 'rgba(0,212,170,0.10)', border: 'rgba(0,212,170,0.3)', dot: '#00d4aa', text: '#a7f3d0' },
-    { bg: 'rgba(244,114,182,0.10)', border: 'rgba(244,114,182,0.3)', dot: '#f472b6', text: '#fce7f3' },
-    { bg: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.3)', dot: '#8b5cf6', text: '#e9e0ff' },
-    { bg: 'rgba(96,165,250,0.10)', border: 'rgba(96,165,250,0.3)', dot: '#60a5fa', text: '#dbeafe' },
+    { bg: 'rgb(var(--content3))', border: 'rgb(var(--foreground))', dot: 'rgb(var(--primary))', text: 'rgb(var(--foreground))' },
+    { bg: 'rgb(var(--content4))', border: 'rgb(var(--foreground))', dot: 'rgb(var(--secondary))', text: 'rgb(var(--foreground))' },
+    { bg: 'rgb(var(--content2))', border: 'rgb(var(--foreground))', dot: 'rgb(var(--warning))', text: 'rgb(var(--foreground))' },
+    { bg: 'rgb(251 220 225)', border: 'rgb(var(--foreground))', dot: 'rgb(var(--danger))', text: 'rgb(var(--foreground))' },
   ];
 
   return (
-    <div className="flex flex-col h-full aurora-bg text-white overflow-hidden relative">
-      <AuroraOrbs />
-
+    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative">
       {/* Header */}
-      <header className="glass-header h-14 md:h-16 flex items-center justify-between px-3 md:px-6 z-20 shrink-0 relative">
+      <header className="neo-header h-14 md:h-16 flex items-center justify-between px-3 md:px-6 z-20 shrink-0 relative">
         <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden glass-btn p-2 rounded-lg"
+            className="md:hidden neo-btn p-2 rounded-lg"
           >
             {isSidebarOpen ? <X className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
           </button>
@@ -921,8 +898,8 @@ const App = () => {
             className="flex items-center gap-2 md:gap-3 hover:scale-105 transition-transform"
             onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
           >
-            <img src="/logo.png" alt="TB Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-lg border border-white/20" />
-            <h1 className="text-base md:text-xl font-semibold text-white tracking-tight glow-teal">
+            <img src="/logo.png" alt="TB Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-lg border-2 border-foreground" />
+            <h1 className="text-base md:text-xl font-black text-foreground tracking-tight uppercase">
               TB PROMPT CREATOR
             </h1>
           </a>
@@ -931,7 +908,7 @@ const App = () => {
           {currentStage === 'stage1' && (
            <button
              onClick={() => setIsUploadModalOpen(true)}
-             className="glass-btn glass-btn-pink flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+             className="neo-btn neo-btn-danger flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
              title="JSON 템플릿 업로드"
            >
              <Upload className="w-4 h-4" />
@@ -946,8 +923,7 @@ const App = () => {
                setStage2UploadInput('');
                setIsStage2UploadOpen(true);
              }}
-             className="glass-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-             style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.3)', color: '#93c5fd' }}
+             className="neo-btn neo-btn-secondary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
              title="이미지 JSON 업로드"
            >
              <Upload className="w-4 h-4" />
@@ -962,8 +938,7 @@ const App = () => {
                setStage2UploadInput('');
                setIsStage2UploadOpen(true);
              }}
-             className="glass-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-             style={{ background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', color: '#f9a8d4' }}
+             className="neo-btn neo-btn-danger flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
              title="영상 JSON 업로드"
            >
              <Upload className="w-4 h-4" />
@@ -979,7 +954,7 @@ const App = () => {
         {/* Mobile Overlay */}
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
+            className="fixed inset-0 bg-foreground/40 z-30 md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
@@ -987,33 +962,31 @@ const App = () => {
         {/* LEFT PANEL: Structure Tree */}
         <aside className={`
           fixed md:relative inset-y-0 left-0 z-40 md:z-auto
-          w-72 md:w-80 glass-sidebar flex flex-col shrink-0
+          w-72 md:w-80 neo-sidebar flex flex-col shrink-0
           transform transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           top-14 md:top-0 h-[calc(100vh-3.5rem)] md:h-auto
         `}>
           {/* Stage Tabs */}
-          <div className="p-2 md:p-3 border-b border-white/10 flex flex-col gap-2">
+          <div className="p-2 md:p-3 border-b-2 border-foreground/20 flex flex-col gap-2">
             <div className="flex gap-1.5">
               <button
                 onClick={() => setCurrentStage('stage1')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
                   currentStage === 'stage1'
-                    ? 'glass-btn-teal text-emerald-200'
-                    : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                    ? 'bg-primary text-primary-foreground border-3 border-foreground shadow-neo-sm'
+                    : 'text-foreground/60 hover:bg-content2 border-3 border-transparent'
                 }`}
-                style={currentStage === 'stage1' ? { background: 'rgba(0,212,170,0.15)', border: '1px solid rgba(0,212,170,0.3)' } : {}}
               >
                 1단계
               </button>
               <button
                 onClick={() => setCurrentStage('stage2')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
                   currentStage === 'stage2'
-                    ? 'text-purple-200'
-                    : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                    ? 'bg-secondary text-secondary-foreground border-3 border-foreground shadow-neo-sm'
+                    : 'text-foreground/60 hover:bg-content2 border-3 border-transparent'
                 }`}
-                style={currentStage === 'stage2' ? { background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' } : {}}
               >
                 2단계
               </button>
@@ -1025,42 +998,42 @@ const App = () => {
               }
               target="_blank"
               rel="noreferrer"
-              className={`flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
+              className={`neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold ${
                 currentStage === 'stage1'
-                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
-                  : 'bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20'
+                  ? 'neo-btn-primary'
+                  : 'neo-btn-secondary'
               }`}
             >
               <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드 열기</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
+              <ExternalLink className="w-3 h-3" />
             </a>
           </div>
 
           {/* Stage 1 Sidebar Content */}
           {currentStage === 'stage1' && (
             <>
-              <div className="p-3 md:p-4 border-b border-white/10">
-                <h2 className="font-medium text-base text-white flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-purple-400" />
+              <div className="p-3 md:p-4 border-b-2 border-foreground/20">
+                <h2 className="font-black text-base text-foreground flex items-center gap-2 uppercase">
+                  <Layers className="w-5 h-5 text-secondary" />
                   구조 (Structure)
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 ml-auto" />
+                  <div className="w-2 h-2 rounded-full bg-primary ml-auto" />
                 </h2>
               </div>
 
               <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
                 {(template.prompt_sections || []).map((section, idx) => (
-                  <div key={section.section_id} className="glass-card rounded-xl overflow-hidden">
+                  <div key={section.section_id} className="neo-card-static rounded-xl overflow-hidden">
                     <button
                       onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
-                      className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-medium text-white hover:bg-white/5 transition-colors"
+                      className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-bold text-foreground hover:bg-foreground/5 transition-colors"
                       style={{ background: tabColors[idx % 4].bg }}
                     >
-                      {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
+                      {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-foreground/70" /> : <ChevronRight className="w-4 h-4 text-foreground/70" />}
                       <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
-                      {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />}
+                      {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                     </button>
                     {expandedSection === section.section_id && (
-                      <div className="p-2 space-y-1 bg-black/20">
+                      <div className="p-2 space-y-1 bg-foreground/5">
                         {(section.components || []).map((comp) => (
                           <div
                             key={comp.component_id}
@@ -1070,21 +1043,21 @@ const App = () => {
                                 const el = document.getElementById(`comp-${comp.component_id}`);
                                 if (el) {
                                   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                  el.classList.add('ring-2', 'ring-purple-400/50');
-                                  setTimeout(() => el.classList.remove('ring-2', 'ring-purple-400/50'), 2000);
+                                  el.classList.add('ring-2', 'ring-primary/50');
+                                  setTimeout(() => el.classList.remove('ring-2', 'ring-primary/50'), 2000);
                                 }
                               }, 50);
                               setIsSidebarOpen(false);
                             }}
-                            className="pl-2 flex items-center gap-2 text-sm text-white/70 py-1.5 md:py-1 hover:bg-white/5 hover:text-white rounded-lg cursor-pointer transition-colors font-normal"
+                            className="pl-2 flex items-center gap-2 text-sm text-foreground/70 py-1.5 md:py-1 hover:bg-foreground/5 hover:text-foreground rounded-lg cursor-pointer transition-colors font-medium"
                           >
-                            <Box className="w-3 h-3 text-purple-400/70" />
+                            <Box className="w-3 h-3 text-secondary/70" />
                             <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
-                            {(comp.is_active !== false) && <Check className="w-3 h-3 text-emerald-400/70 ml-auto mr-1" />}
+                            {(comp.is_active !== false) && <Check className="w-3 h-3 text-primary/70 ml-auto mr-1" />}
                           </div>
                         ))}
                         {(!section.components || section.components.length === 0) && (
-                           <div className="pl-2 text-xs text-white/50 italic py-1">하위 요소 없음</div>
+                           <div className="pl-2 text-xs text-foreground/50 italic py-1">하위 요소 없음</div>
                         )}
                       </div>
                     )}
@@ -1092,16 +1065,16 @@ const App = () => {
                 ))}
 
                 {(!template.prompt_sections || template.prompt_sections.length === 0) && (
-                  <div className="text-center py-10 px-4 text-white/60 text-sm">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center glass-card">
-                      <FileJson className="w-8 h-8 text-white/60" />
+                  <div className="text-center py-10 px-4 text-foreground/60 text-sm">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center neo-card-static">
+                      <FileJson className="w-8 h-8 text-foreground/60" />
                     </div>
                     <p className="font-medium">로드된 템플릿이 없습니다.</p>
                     <button
                       onClick={() => {
                         setIsUploadModalOpen(true);
                       }}
-                      className="mt-3 glass-btn glass-btn-teal px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
+                      className="mt-3 neo-btn neo-btn-primary px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
                     >
                       <Play className="w-3 h-3" />
                       JSON 업로드 시작
@@ -1118,15 +1091,16 @@ const App = () => {
               {/* Image / Video sub-page buttons */}
               <button
                 onClick={() => setStage2SubPage('image')}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
-                  stage2SubPage === 'image' ? 'text-white' : 'text-white/60 hover:text-white/80 hover:bg-white/5'
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                  stage2SubPage === 'image'
+                    ? 'text-foreground bg-content4 border-3 border-foreground shadow-neo-sm'
+                    : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-transparent'
                 }`}
-                style={stage2SubPage === 'image' ? { background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)' } : {}}
               >
-                <ImageIcon className="w-5 h-5 text-blue-400" />
+                <ImageIcon className="w-5 h-5 text-secondary" />
                 <span className="flex-1 text-left">이미지 프롬프트</span>
                 {imagePrompts.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(96,165,250,0.25)', color: '#93c5fd' }}>
+                  <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                     {imagePrompts.length}
                   </span>
                 )}
@@ -1134,15 +1108,16 @@ const App = () => {
 
               <button
                 onClick={() => setStage2SubPage('video')}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
-                  stage2SubPage === 'video' ? 'text-white' : 'text-white/60 hover:text-white/80 hover:bg-white/5'
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                  stage2SubPage === 'video'
+                    ? 'text-foreground bg-danger/10 border-3 border-foreground shadow-neo-sm'
+                    : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-transparent'
                 }`}
-                style={stage2SubPage === 'video' ? { background: 'rgba(244,114,182,0.12)', border: '1px solid rgba(244,114,182,0.3)' } : {}}
               >
-                <Film className="w-5 h-5 text-pink-400" />
+                <Film className="w-5 h-5 text-danger" />
                 <span className="flex-1 text-left">영상 프롬프트</span>
                 {videoPrompts.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(244,114,182,0.25)', color: '#f9a8d4' }}>
+                  <span className="memphis-badge-danger text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                     {videoPrompts.length}
                   </span>
                 )}
@@ -1152,12 +1127,12 @@ const App = () => {
           )}
 
           {/* SIDEBAR FOOTER: External Tools */}
-          <div className="p-3 md:p-4 border-t border-white/10">
+          <div className="p-3 md:p-4 border-t-2 border-foreground/20">
             <a
               href="https://translate.google.co.kr/"
               target="_blank"
               rel="noreferrer"
-              className="glass-btn glass-btn-purple flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg"
+              className="neo-btn neo-btn-secondary flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg"
               title="새 탭에서 구글 번역기 열기"
             >
               <ExternalLink className="w-4 h-4" />
@@ -1173,24 +1148,24 @@ const App = () => {
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
             {/* color_palette 정보 패널 */}
             {template.color_palette && (template.color_palette.primary || template.color_palette.secondary || template.color_palette.accent) && (
-              <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
+              <div className="shrink-0 neo-card-static rounded-xl p-3 md:p-4">
                 <div className="flex flex-wrap gap-3 md:gap-4 items-start">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm" style={{ background: 'rgba(244,114,182,0.10)', border: '1px solid rgba(244,114,182,0.25)' }}>
-                    <Palette className="w-3.5 h-3.5 text-pink-400" />
-                    <span className="text-white/60 font-medium">컬러 팔레트</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm bg-danger/10 border-2 border-foreground">
+                    <Palette className="w-3.5 h-3.5 text-danger" />
+                    <span className="text-foreground/60 font-bold">컬러 팔레트</span>
                     <div className="flex items-center gap-1.5">
                       {template.color_palette.primary && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Primary">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-foreground/10 border border-foreground/20" title="Primary">
                           {template.color_palette.primary}
                         </span>
                       )}
                       {template.color_palette.secondary && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Secondary">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-foreground/10 border border-foreground/20" title="Secondary">
                           {template.color_palette.secondary}
                         </span>
                       )}
                       {template.color_palette.accent && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.08)' }} title="Accent">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-foreground/10 border border-foreground/20" title="Accent">
                           {template.color_palette.accent}
                         </span>
                       )}
@@ -1201,15 +1176,15 @@ const App = () => {
             )}
 
             {/* 최종 프롬프트 영역 */}
-            <div className="shrink-0 glass-card rounded-xl p-3 md:p-4">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-emerald-400" />
+            <div className="shrink-0 neo-card-static rounded-xl p-3 md:p-4">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b-2 border-foreground/20">
+                <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
+                  <span className="w-3 h-3 rounded-full bg-primary" />
                   최종 프롬프트
                 </h3>
                 <button
                   onClick={() => copyToClipboard(promptString)}
-                  className="glass-btn text-sm font-medium flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg"
+                  className="neo-btn text-sm font-medium flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg"
                 >
                   <Copy className="w-3.5 h-3.5" /> 복사
                 </button>
@@ -1217,16 +1192,16 @@ const App = () => {
               <textarea
                 value={promptString}
                 readOnly
-                className="w-full h-28 md:h-36 p-3 md:p-4 bg-black/40 font-mono text-xs md:text-sm text-white resize-none outline-none leading-relaxed border border-white/15 rounded-xl overflow-hidden"
+                className="memphis-input w-full h-28 md:h-36 p-3 md:p-4 font-mono text-xs md:text-sm resize-none leading-relaxed rounded-xl overflow-hidden"
                 spellCheck={false}
                 placeholder="생성된 프롬프트가 없습니다..."
               />
             </div>
 
             {/* 시각적 편집 영역 - 탭 UI */}
-            <div className="flex-1 glass-card rounded-xl overflow-hidden min-h-0 flex flex-col">
+            <div className="flex-1 neo-card-static rounded-xl overflow-hidden min-h-0 flex flex-col">
               {/* 탭 바 */}
-              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-black/20 border-b border-white/10 overflow-x-auto">
+              <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-content2 border-b-3 border-foreground overflow-x-auto">
                 {(template.prompt_sections || []).map((section, sectionIdx) => {
                   const tc = tabColors[sectionIdx % 4];
                   const isActive = activeTab === sectionIdx;
@@ -1235,15 +1210,15 @@ const App = () => {
                     <button
                       key={section.section_id}
                       onClick={() => setActiveTab(sectionIdx)}
-                      className={`relative px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg shrink-0 ${
+                      className={`relative px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg shrink-0 ${
                         tabCount <= 5 ? 'flex-1' : ''
+                      } ${isActive
+                        ? 'border-3 border-foreground shadow-neo-sm'
+                        : 'border-3 border-transparent hover:bg-foreground/5'
                       }`}
                       style={{
                         background: isActive ? tc.bg : 'transparent',
-                        borderWidth: '1px',
-                        borderColor: isActive ? tc.border : 'rgba(255,255,255,0.06)',
-                        color: isActive ? tc.text : 'rgba(255,255,255,0.6)',
-                        boxShadow: isActive ? `0 0 16px ${tc.bg}` : 'none',
+                        color: tc.text,
                       }}
                     >
                       <span
@@ -1269,27 +1244,27 @@ const App = () => {
                       <div className="flex flex-col gap-4 md:gap-6">
                         {(section.components || []).map((comp) => (
                           <div key={comp.component_id} id={`comp-${comp.component_id}`} className="space-y-2 md:space-y-3 transition-all duration-300 rounded-lg">
-                             <div className="text-xs font-medium text-white/80 flex items-center gap-2 px-1">
-                                <Box className="w-3 h-3 text-purple-400/70" />
+                             <div className="text-xs font-medium text-foreground/80 flex items-center gap-2 px-1">
+                                <Box className="w-3 h-3 text-secondary/70" />
                                 {comp.component_label_ko || comp.component_label}
                              </div>
 
                              <div className="grid grid-cols-1 gap-3 md:gap-4">
                                {(comp.attributes || []).map((attr) => (
-                                 <div key={attr.attr_id} className="glass-card p-3 md:p-4 rounded-xl flex flex-col gap-2 md:gap-3">
+                                 <div key={attr.attr_id} className="neo-card-static p-3 md:p-4 rounded-xl flex flex-col gap-2 md:gap-3">
                                    {/* Attribute Header */}
                                    <div className="flex items-center justify-between gap-2">
                                      <div className="flex items-center gap-2">
-                                       <label className="text-sm md:text-base font-medium text-white flex items-center gap-2 truncate">
+                                       <label className="text-sm md:text-base font-medium text-foreground flex items-center gap-2 truncate">
                                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tc.dot }} />
                                          {attr.label_ko || attr.label}
                                          {attr.is_locked && (
-                                           <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>
+                                           <span className="memphis-badge-warning flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold">
                                              <Lock className="w-2.5 h-2.5" />
                                              고정
                                            </span>
                                          )}
-                                         {(attr.is_active === false) && <span className="text-[10px] text-pink-400 font-medium">(Inactive)</span>}
+                                         {(attr.is_active === false) && <span className="text-[10px] text-danger font-medium">(Inactive)</span>}
                                        </label>
                                        <CopyButton value={getDisplayValue(attr, attr.value)} />
                                      </div>
@@ -1304,8 +1279,8 @@ const App = () => {
                                      {/* Left: Current Value */}
                                      <div className="w-full md:w-[40%]">
                                        <div
-                                         className="text-sm md:text-base text-white break-words leading-relaxed p-3 rounded-lg font-normal h-full"
-                                         style={{ background: tc.bg, border: `1px solid ${tc.border}` }}
+                                         className="text-sm md:text-base text-foreground break-words leading-relaxed p-3 rounded-lg font-medium h-full border-2 border-foreground"
+                                         style={{ background: tc.bg }}
                                          title={String(attr.value)}
                                        >
                                          {getDisplayValue(attr, attr.value)}
@@ -1318,7 +1293,7 @@ const App = () => {
                                          list={attr.options ? `datalist-${attr.attr_id}` : undefined}
                                          type="text"
                                          placeholder="영문 값 입력..."
-                                         className="glass-input w-full h-full text-sm md:text-base p-3 rounded-lg font-normal"
+                                         className="memphis-input w-full h-full text-sm md:text-base p-3 rounded-lg font-normal"
                                          value={Array.isArray(attr.value) ? attr.value.join(', ') : attr.value}
                                          onChange={(e) => updateAttributeValue(section.section_id, comp.component_id, attr.attr_id, e.target.value)}
                                        />
@@ -1367,16 +1342,16 @@ const App = () => {
 
       {/* Upload Modal */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] border border-white/15">
-            <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between shrink-0">
-              <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
-                <FileJson className="w-5 h-5 text-purple-400" />
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="neo-card-static rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] animate-scale-in">
+            <div className="p-3 md:p-5 border-b-3 border-foreground flex items-center justify-between shrink-0">
+              <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
+                <FileJson className="w-5 h-5 text-secondary" />
                 JSON 템플릿 불러오기
               </h3>
               <button
                 onClick={() => setIsUploadModalOpen(false)}
-                className="glass-btn glass-btn-pink p-1.5 rounded-lg"
+                className="neo-btn neo-btn-danger p-1.5 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1384,13 +1359,11 @@ const App = () => {
 
             <div className="p-3 md:p-6 flex-1 overflow-hidden flex flex-col">
               {uploadError && (
-                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0"
-                  style={{ background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.3)' }}
-                >
-                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-pink-400 shrink-0 mt-0.5" />
+                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0 bg-danger/10 border-2 border-foreground">
+                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-danger shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-pink-300">오류 발생</p>
-                    <p className="text-white/80">{uploadError}</p>
+                    <p className="font-bold text-danger">오류 발생</p>
+                    <p className="text-foreground/80">{uploadError}</p>
                   </div>
                 </div>
               )}
@@ -1399,21 +1372,21 @@ const App = () => {
                 value={uploadInput}
                 onChange={(e) => setUploadInput(e.target.value)}
                 placeholder='{"meta_data": ..., "prompt_sections": ...}'
-                className="glass-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
+                className="memphis-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
               />
             </div>
 
-            <div className="p-3 md:p-5 border-t border-white/10 flex justify-end gap-2 md:gap-3 shrink-0">
+            <div className="p-3 md:p-5 border-t-3 border-foreground flex justify-end gap-2 md:gap-3 shrink-0">
               <button
                 onClick={() => setIsUploadModalOpen(false)}
-                className="glass-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
+                className="neo-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
               >
                 취소
               </button>
               <button
                 onClick={handleUpload}
                 disabled={!uploadInput.trim() || isUploadLoading}
-                className="glass-btn glass-btn-teal px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
+                className="neo-btn neo-btn-primary px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
               >
                 {isUploadLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                 <span className="hidden sm:inline">템플릿</span> 적용
@@ -1425,16 +1398,16 @@ const App = () => {
 
       {/* Stage2 Upload Modal */}
       {isStage2UploadOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] border border-white/15">
-            <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between shrink-0">
-              <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
-                {stage2UploadTarget === 'image' ? <ImageIcon className="w-5 h-5 text-blue-400" /> : <Film className="w-5 h-5 text-pink-400" />}
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="neo-card-static rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] animate-scale-in">
+            <div className="p-3 md:p-5 border-b-3 border-foreground flex items-center justify-between shrink-0">
+              <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
+                {stage2UploadTarget === 'image' ? <ImageIcon className="w-5 h-5 text-secondary" /> : <Film className="w-5 h-5 text-danger" />}
                 {stage2UploadTarget === 'image' ? '이미지' : '영상'} 프롬프트 JSON 불러오기
               </h3>
               <button
                 onClick={() => setIsStage2UploadOpen(false)}
-                className="glass-btn glass-btn-pink p-1.5 rounded-lg"
+                className="neo-btn neo-btn-danger p-1.5 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1442,18 +1415,16 @@ const App = () => {
 
             <div className="p-3 md:p-6 flex-1 overflow-hidden flex flex-col">
               {stage2UploadError && (
-                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0"
-                  style={{ background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.3)' }}
-                >
-                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-pink-400 shrink-0 mt-0.5" />
+                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0 bg-danger/10 border-2 border-foreground">
+                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-danger shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-pink-300">오류 발생</p>
-                    <p className="text-white/80">{stage2UploadError}</p>
+                    <p className="font-bold text-danger">오류 발생</p>
+                    <p className="text-foreground/80">{stage2UploadError}</p>
                   </div>
                 </div>
               )}
 
-              <div className="mb-3 p-2.5 rounded-lg text-xs text-white/60 shrink-0" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+              <div className="mb-3 p-2.5 rounded-lg text-xs text-foreground/60 shrink-0 bg-content4 border-2 border-foreground/20">
                 JSON 배열 형식: [{"{"} "id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..." {"}"}]
               </div>
 
@@ -1461,21 +1432,21 @@ const App = () => {
                 value={stage2UploadInput}
                 onChange={(e) => setStage2UploadInput(e.target.value)}
                 placeholder='[{"id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..."}]'
-                className="glass-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
+                className="memphis-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
               />
             </div>
 
-            <div className="p-3 md:p-5 border-t border-white/10 flex justify-end gap-2 md:gap-3 shrink-0">
+            <div className="p-3 md:p-5 border-t-3 border-foreground flex justify-end gap-2 md:gap-3 shrink-0">
               <button
                 onClick={() => setIsStage2UploadOpen(false)}
-                className="glass-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
+                className="neo-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
               >
                 취소
               </button>
               <button
                 onClick={handleStage2Upload}
                 disabled={!stage2UploadInput.trim()}
-                className="glass-btn glass-btn-teal px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
+                className="neo-btn neo-btn-primary px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
               >
                 <Upload className="w-4 h-4" />
                 적용
@@ -1487,53 +1458,53 @@ const App = () => {
 
       {/* API Info Modal */}
       {isApiInfoOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="glass-card bg-[#0d0d24]/90 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/15">
-            <div className="p-3 md:p-5 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0d0d24]/95 backdrop-blur-xl z-10 rounded-t-2xl">
-              <h3 className="text-base md:text-lg font-medium text-white flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-purple-400" />
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="neo-card-static rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div className="p-3 md:p-5 border-b-3 border-foreground flex items-center justify-between sticky top-0 bg-content1 z-10 rounded-t-2xl">
+              <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
+                <Cpu className="w-5 h-5 text-secondary" />
                 API 연결 정보
               </h3>
               <button
                 onClick={() => setIsApiInfoOpen(false)}
-                className="glass-btn p-1.5 rounded-lg"
+                className="neo-btn p-1.5 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 md:p-6 space-y-4">
               <div className="space-y-2">
-                <p className="text-xs md:text-sm text-white/70 font-medium">현재 사용 중인 모델:</p>
-                <div className="flex items-center gap-2 font-mono text-sm px-3 py-2 rounded-xl glass-card" style={{ background: 'rgba(0,212,170,0.08)', borderColor: 'rgba(0,212,170,0.25)' }}>
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-emerald-300">gemini-2.5-flash</span>
+                <p className="text-xs md:text-sm text-foreground/70 font-medium">현재 사용 중인 모델:</p>
+                <div className="flex items-center gap-2 font-mono text-sm px-3 py-2 rounded-xl bg-content3 border-2 border-foreground">
+                  <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+                  <span className="text-primary">gemini-2.5-flash</span>
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2 border-t border-white/10">
-                <p className="text-xs md:text-sm text-white/70 font-medium">기능별 사용:</p>
+              <div className="space-y-2 pt-2 border-t-2 border-foreground/20">
+                <p className="text-xs md:text-sm text-foreground/70 font-medium">기능별 사용:</p>
                 <ul className="space-y-2 text-xs md:text-sm">
-                  <li className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(0,212,170,0.06)' }}>
-                    <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                  <li className="flex items-start gap-2 p-2 rounded-lg bg-content3">
+                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-medium text-white">AI 퀵 번역기</span>
-                      <p className="text-xs text-white/60 mt-0.5">한글↔영문 텍스트 즉시 번역</p>
+                      <span className="font-medium text-foreground">AI 퀵 번역기</span>
+                      <p className="text-xs text-foreground/60 mt-0.5">한글↔영문 텍스트 즉시 번역</p>
                     </div>
                   </li>
-                  <li className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(139,92,246,0.06)' }}>
-                    <ShieldCheck className="w-4 h-4 text-white/50 mt-0.5 shrink-0" />
+                  <li className="flex items-start gap-2 p-2 rounded-lg bg-content4">
+                    <ShieldCheck className="w-4 h-4 text-foreground/50 mt-0.5 shrink-0" />
                     <div>
-                      <span className="font-medium text-white/80">템플릿 업로드 (Parse Only)</span>
-                      <p className="text-xs text-white/60 mt-0.5">API 미사용, JSON 파싱만 수행</p>
+                      <span className="font-medium text-foreground/80">템플릿 업로드 (Parse Only)</span>
+                      <p className="text-xs text-foreground/60 mt-0.5">API 미사용, JSON 파싱만 수행</p>
                     </div>
                   </li>
                 </ul>
               </div>
 
               {/* API Key Input Section */}
-              <div className="space-y-2 pt-4 border-t border-white/10">
-                 <label className="text-xs md:text-sm font-medium text-white/90 flex items-center gap-2">
-                   <KeyRound className="w-4 h-4 text-pink-400" />
+              <div className="space-y-2 pt-4 border-t-2 border-foreground/20">
+                 <label className="text-xs md:text-sm font-medium text-foreground/90 flex items-center gap-2">
+                   <KeyRound className="w-4 h-4 text-danger" />
                    Custom API Key
                  </label>
                  <div className="relative">
@@ -1542,10 +1513,10 @@ const App = () => {
                      value={userApiKey}
                      onChange={(e) => setUserApiKey(e.target.value)}
                      placeholder="Gemini API Key 입력..."
-                     className="glass-input w-full p-2.5 rounded-lg text-sm font-mono"
+                     className="memphis-input w-full p-2.5 rounded-lg text-sm font-mono"
                    />
                  </div>
-                 <p className="text-xs text-white/60">
+                 <p className="text-xs text-foreground/60">
                    미입력시 기본 키 사용
                  </p>
               </div>
