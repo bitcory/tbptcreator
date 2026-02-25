@@ -992,54 +992,48 @@ const App = () => {
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           top-14 md:top-0 h-[calc(100vh-3.5rem)] md:h-auto
         `}>
-          {/* 프롬프트 만들기 버튼 */}
-          <div className="p-3 md:p-4 border-b border-white/10 flex gap-2">
-            <a
-              href="https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
-              target="_blank"
-              rel="noreferrer"
-              className="group relative flex items-center justify-center gap-2 flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 glass-btn-teal glass-btn"
-            >
-              <Wand2 className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
-              <span className="text-sm">1단계</span>
-              <ExternalLink className="w-3 h-3 opacity-50" />
-            </a>
-            <a
-              href="https://gemini.google.com/gem/1IX4r2QFHFYEb7YkAtv-UcsRxVioJqIXr?usp=sharing"
-              target="_blank"
-              rel="noreferrer"
-              className="group relative flex items-center justify-center gap-2 flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 glass-btn-purple glass-btn"
-            >
-              <Film className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-              <span className="text-sm">2단계</span>
-              <ExternalLink className="w-3 h-3 opacity-50" />
-            </a>
-          </div>
-
           {/* Stage Tabs */}
-          <div className="p-2 md:p-3 border-b border-white/10 flex gap-1.5">
-            <button
-              onClick={() => setCurrentStage('stage1')}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+          <div className="p-2 md:p-3 border-b border-white/10 flex flex-col gap-2">
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setCurrentStage('stage1')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                  currentStage === 'stage1'
+                    ? 'glass-btn-teal text-emerald-200'
+                    : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                }`}
+                style={currentStage === 'stage1' ? { background: 'rgba(0,212,170,0.15)', border: '1px solid rgba(0,212,170,0.3)' } : {}}
+              >
+                1단계
+              </button>
+              <button
+                onClick={() => setCurrentStage('stage2')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                  currentStage === 'stage2'
+                    ? 'text-purple-200'
+                    : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                }`}
+                style={currentStage === 'stage2' ? { background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' } : {}}
+              >
+                2단계
+              </button>
+            </div>
+            <a
+              href={currentStage === 'stage1'
+                ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
+                : "https://gemini.google.com/gem/1IX4r2QFHFYEb7YkAtv-UcsRxVioJqIXr?usp=sharing"
+              }
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
                 currentStage === 'stage1'
-                  ? 'glass-btn-teal text-emerald-200'
-                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20'
               }`}
-              style={currentStage === 'stage1' ? { background: 'rgba(0,212,170,0.15)', border: '1px solid rgba(0,212,170,0.3)' } : {}}
             >
-              1단계 편집
-            </button>
-            <button
-              onClick={() => setCurrentStage('stage2')}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
-                currentStage === 'stage2'
-                  ? 'text-purple-200'
-                  : 'text-white/50 hover:text-white/70 hover:bg-white/5'
-              }`}
-              style={currentStage === 'stage2' ? { background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' } : {}}
-            >
-              2단계 뷰어
-            </button>
+              <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드 열기</span>
+              <ExternalLink className="w-3 h-3 opacity-60" />
+            </a>
           </div>
 
           {/* Stage 1 Sidebar Content */}
