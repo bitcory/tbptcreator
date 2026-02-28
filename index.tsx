@@ -810,20 +810,60 @@ const App = () => {
 
       if (!Array.isArray(json)) throw new Error('JSON 배열 형식이어야 합니다.');
 
-      for (let i = 0; i < json.length; i++) {
-        const item = json[i];
-        if (typeof item.id !== 'number') throw new Error(`항목 ${i + 1}: "id" 필드가 누락되었거나 숫자가 아닙니다.`);
-        if (typeof item.scene_title !== 'string') throw new Error(`항목 ${i + 1}: "scene_title" 필드가 누락되었습니다.`);
-        if (typeof item.prompt !== 'string') throw new Error(`항목 ${i + 1}: "prompt" 필드가 누락되었습니다.`);
-        if (typeof item.ko_description !== 'string') throw new Error(`항목 ${i + 1}: "ko_description" 필드가 누락되었습니다.`);
-      }
+      // Detect combined format (has image_prompt and video_prompt fields)
+      const isCombinedFormat = json.length > 0 && ('image_prompt' in json[0] || 'video_prompt' in json[0]);
 
-      if (stage2UploadTarget === 'image') {
-        setImagePrompts(json);
+      if (isCombinedFormat) {
+        // Combined format validation & splitting
+        const imgPrompts: ScenePrompt[] = [];
+        const vidPrompts: ScenePrompt[] = [];
+
+        for (let i = 0; i < json.length; i++) {
+          const item = json[i];
+          if (typeof item.id !== 'number') throw new Error(`항목 ${i + 1}: "id" 필드가 누락되었거나 숫자가 아닙니다.`);
+          if (typeof item.scene_title !== 'string') throw new Error(`항목 ${i + 1}: "scene_title" 필드가 누락되었습니다.`);
+
+          if ('image_prompt' in item) {
+            if (typeof item.image_prompt !== 'string') throw new Error(`항목 ${i + 1}: "image_prompt" 필드가 문자열이 아닙니다.`);
+            imgPrompts.push({
+              id: item.id,
+              scene_title: item.scene_title,
+              prompt: item.image_prompt,
+              ko_description: typeof item.image_ko_description === 'string' ? item.image_ko_description : '',
+            });
+          }
+
+          if ('video_prompt' in item) {
+            if (typeof item.video_prompt !== 'string') throw new Error(`항목 ${i + 1}: "video_prompt" 필드가 문자열이 아닙니다.`);
+            vidPrompts.push({
+              id: item.id,
+              scene_title: item.scene_title,
+              prompt: item.video_prompt,
+              ko_description: typeof item.video_ko_description === 'string' ? item.video_ko_description : '',
+            });
+          }
+        }
+
+        if (imgPrompts.length > 0) setImagePrompts(imgPrompts);
+        if (vidPrompts.length > 0) setVideoPrompts(vidPrompts);
         setStage2SubPage('image');
       } else {
-        setVideoPrompts(json);
-        setStage2SubPage('video');
+        // Legacy single format validation
+        for (let i = 0; i < json.length; i++) {
+          const item = json[i];
+          if (typeof item.id !== 'number') throw new Error(`항목 ${i + 1}: "id" 필드가 누락되었거나 숫자가 아닙니다.`);
+          if (typeof item.scene_title !== 'string') throw new Error(`항목 ${i + 1}: "scene_title" 필드가 누락되었습니다.`);
+          if (typeof item.prompt !== 'string') throw new Error(`항목 ${i + 1}: "prompt" 필드가 누락되었습니다.`);
+          if (typeof item.ko_description !== 'string') throw new Error(`항목 ${i + 1}: "ko_description" 필드가 누락되었습니다.`);
+        }
+
+        if (stage2UploadTarget === 'image') {
+          setImagePrompts(json);
+          setStage2SubPage('image');
+        } else {
+          setVideoPrompts(json);
+          setStage2SubPage('video');
+        }
       }
 
       setIsStage2UploadOpen(false);
@@ -915,34 +955,19 @@ const App = () => {
              <span className="hidden sm:inline">템플릿</span> 업로드
            </button>
           )}
-          {currentStage === 'stage2' && stage2SubPage === 'image' && (
+          {currentStage === 'stage2' && (
            <button
              onClick={() => {
-               setStage2UploadTarget('image');
+               setStage2UploadTarget(stage2SubPage);
                setStage2UploadError(null);
                setStage2UploadInput('');
                setIsStage2UploadOpen(true);
              }}
              className="neo-btn neo-btn-secondary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-             title="이미지 JSON 업로드"
+             title="프롬프트 JSON 업로드"
            >
              <Upload className="w-4 h-4" />
-             <span className="hidden sm:inline">템플릿업로드(이미지)</span>
-           </button>
-          )}
-          {currentStage === 'stage2' && stage2SubPage === 'video' && (
-           <button
-             onClick={() => {
-               setStage2UploadTarget('video');
-               setStage2UploadError(null);
-               setStage2UploadInput('');
-               setIsStage2UploadOpen(true);
-             }}
-             className="neo-btn neo-btn-danger flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-             title="영상 JSON 업로드"
-           >
-             <Upload className="w-4 h-4" />
-             <span className="hidden sm:inline">템플릿업로드(영상)</span>
+             <span className="hidden sm:inline">템플릿</span> 업로드
            </button>
           )}
         </div>
@@ -994,7 +1019,7 @@ const App = () => {
             <a
               href={currentStage === 'stage1'
                 ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
-                : "https://gemini.google.com/gem/1IX4r2QFHFYEb7YkAtv-UcsRxVioJqIXr?usp=sharing"
+                : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
               }
               target="_blank"
               rel="noreferrer"
@@ -1402,8 +1427,8 @@ const App = () => {
           <div className="neo-card-static rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] animate-scale-in">
             <div className="p-3 md:p-5 border-b-3 border-foreground flex items-center justify-between shrink-0">
               <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
-                {stage2UploadTarget === 'image' ? <ImageIcon className="w-5 h-5 text-secondary" /> : <Film className="w-5 h-5 text-danger" />}
-                {stage2UploadTarget === 'image' ? '이미지' : '영상'} 프롬프트 JSON 불러오기
+                <Upload className="w-5 h-5 text-secondary" />
+                프롬프트 JSON 불러오기
               </h3>
               <button
                 onClick={() => setIsStage2UploadOpen(false)}
@@ -1424,14 +1449,17 @@ const App = () => {
                 </div>
               )}
 
-              <div className="mb-3 p-2.5 rounded-lg text-xs text-foreground/60 shrink-0 bg-content4 border-2 border-foreground/20">
-                JSON 배열 형식: [{"{"} "id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..." {"}"}]
+              <div className="mb-3 p-2.5 rounded-lg text-xs text-foreground/60 shrink-0 bg-content4 border-2 border-foreground/20 space-y-1">
+                <p className="font-bold text-foreground/80">통합 형식 (이미지+영상 동시):</p>
+                <p>[{"{"} "id": 1, "scene_title": "...", "image_prompt": "...", "image_ko_description": "...", "video_prompt": "...", "video_ko_description": "..." {"}"}]</p>
+                <p className="font-bold text-foreground/80 mt-1">개별 형식 ({stage2UploadTarget === 'image' ? '이미지' : '영상'} 전용):</p>
+                <p>[{"{"} "id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..." {"}"}]</p>
               </div>
 
               <textarea
                 value={stage2UploadInput}
                 onChange={(e) => setStage2UploadInput(e.target.value)}
-                placeholder='[{"id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..."}]'
+                placeholder='[{"id": 1, "scene_title": "...", "image_prompt": "...", "image_ko_description": "...", "video_prompt": "...", "video_ko_description": "..."}]'
                 className="memphis-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
               />
             </div>
