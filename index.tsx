@@ -2410,7 +2410,8 @@ function wmTeleaInpaint(imageData: ImageData, maskData: Uint8Array, radius: numb
 
 // --- Watermark Mask Painter Component ---
 
-const WM_MIN_ZOOM = 1;
+const WM_INITIAL_ZOOM = 0.75;
+const WM_MIN_ZOOM = 0.3;
 const WM_MAX_ZOOM = 10;
 const WM_MIN_BRUSH = 5;
 const WM_MAX_BRUSH = 100;
@@ -2428,7 +2429,7 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(WM_INITIAL_ZOOM);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   // Computed display rect for the image within the container
   const [displayRect, setDisplayRect] = useState({ rw: 0, rh: 0, ox: 0, oy: 0 });
@@ -2448,6 +2449,8 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
   zoomRef.current = zoom;
   const panRef = React.useRef(pan);
   panRef.current = pan;
+  const undoRef = React.useRef(() => {});
+  const redoRef = React.useRef(() => {});
 
   useEffect(() => {
     const imgCanvas = imgCanvasRef.current;
@@ -2467,8 +2470,9 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
       historyIndexRef.current = -1;
       saveMaskHistory();
     });
-    setZoom(1);
+    setZoom(WM_INITIAL_ZOOM);
     setPan({ x: 0, y: 0 });
+    initialCenteredRef.current = false;
   }, [imageUrl, width, height]);
 
   // Track container size → compute exact display rect for the image
@@ -2500,11 +2504,21 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
         if (cursorRef.current) cursorRef.current.style.display = 'none';
         if (containerRef.current) containerRef.current.style.cursor = 'grab';
       }
+      // Ctrl+Z / Cmd+Z = undo, Ctrl+Shift+Z / Cmd+Shift+Z = redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoRef.current();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        redoRef.current();
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         spaceHeldRef.current = false;
         if (containerRef.current) containerRef.current.style.cursor = 'none';
+        if (cursorRef.current) cursorRef.current.style.display = 'block';
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -2518,13 +2532,28 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
   }, [displayRect]);
 
   const clampPan = React.useCallback((px: number, py: number, z: number) => {
-    if (z <= 1) return { x: 0, y: 0 };
     const container = containerRef.current;
     if (!container) return { x: px, y: py };
+    // When zoomed out (z <= 1): free movement, no clamping
+    if (z <= 1) return { x: px, y: py };
+    // When zoomed in: keep image within bounds
     const cw = container.clientWidth;
     const ch = container.clientHeight;
     return { x: Math.max(cw * (1 - z), Math.min(0, px)), y: Math.max(ch * (1 - z), Math.min(0, py)) };
   }, []);
+
+  // Center image on initial load
+  const initialCenteredRef = React.useRef(false);
+  useEffect(() => {
+    if (displayRect.rw === 0 || initialCenteredRef.current) return;
+    initialCenteredRef.current = true;
+    const container = containerRef.current;
+    if (!container) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const z = zoomRef.current;
+    setPan({ x: (cw - cw * z) / 2, y: (ch - ch * z) / 2 });
+  }, [displayRect]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -2542,16 +2571,10 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
         const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
         let newZoom = Math.max(WM_MIN_ZOOM, Math.min(WM_MAX_ZOOM, oldZoom * factor));
         if (Math.abs(newZoom - 1) < 0.05) newZoom = 1;
-        let nx = mx - (mx - panRef.current.x) * (newZoom / oldZoom);
-        let ny = my - (my - panRef.current.y) * (newZoom / oldZoom);
-        if (newZoom <= 1) { nx = 0; ny = 0; }
-        else {
-          const cw2 = container.clientWidth; const ch2 = container.clientHeight;
-          nx = Math.max(cw2 * (1 - newZoom), Math.min(0, nx));
-          ny = Math.max(ch2 * (1 - newZoom), Math.min(0, ny));
-        }
+        const nx = mx - (mx - panRef.current.x) * (newZoom / oldZoom);
+        const ny = my - (my - panRef.current.y) * (newZoom / oldZoom);
         setZoom(newZoom);
-        setPan({ x: nx, y: ny });
+        setPan(newZoom <= 1 ? { x: nx, y: ny } : clampPan(nx, ny, newZoom));
       }
     };
     container.addEventListener('wheel', handleWheel, { passive: false });
@@ -2591,6 +2614,8 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
+  undoRef.current = undo;
+  redoRef.current = redo;
 
   const getCanvasPos = React.useCallback((clientX: number, clientY: number) => {
     const canvas = imgCanvasRef.current;
@@ -2712,11 +2737,10 @@ const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
     const oldZoom = zoomRef.current;
     const z = Math.max(WM_MIN_ZOOM, Math.min(WM_MAX_ZOOM, newZoom));
     const mx = cw / 2; const my = ch / 2;
-    let nx = mx - (mx - panRef.current.x) * (z / oldZoom);
-    let ny = my - (my - panRef.current.y) * (z / oldZoom);
-    const clamped = z <= 1 ? { x: 0, y: 0 } : clampPan(nx, ny, z);
+    const nx = mx - (mx - panRef.current.x) * (z / oldZoom);
+    const ny = my - (my - panRef.current.y) * (z / oldZoom);
     setZoom(z);
-    setPan(clamped);
+    setPan(clampPan(nx, ny, z));
   }, [clampPan]);
 
   const handleComplete = React.useCallback(() => {
