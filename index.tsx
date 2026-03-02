@@ -42,6 +42,7 @@ import {
   ZoomIn,
   ZoomOut,
   SlidersHorizontal,
+  Droplets,
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 
@@ -125,7 +126,7 @@ interface ScenePrompt {
   ko_description: string;
 }
 
-type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover';
+type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover' | 'wm-remover';
 type Stage2SubPage = 'image' | 'video';
 
 interface ExtractedFrame {
@@ -2257,6 +2258,933 @@ const BackgroundRemoverContent = () => {
   );
 };
 
+// --- Watermark Remover Types & Constants ---
+
+type WmStatus = 'idle' | 'masking' | 'processing' | 'done' | 'error';
+const WM_MAX_FILE_SIZE = 20 * 1024 * 1024;
+const WM_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const WM_DEFAULT_INPAINT_RADIUS = 5;
+
+// --- Telea Inpainting Algorithm (pure JS) ---
+
+class WmMinHeap {
+  private data: { dist: number; x: number; y: number }[] = [];
+  push(item: { dist: number; x: number; y: number }) {
+    this.data.push(item);
+    this._bubbleUp(this.data.length - 1);
+  }
+  pop(): { dist: number; x: number; y: number } | undefined {
+    const top = this.data[0];
+    const last = this.data.pop();
+    if (this.data.length > 0 && last) {
+      this.data[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+  get size() { return this.data.length; }
+  private _bubbleUp(i: number) {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.data[i].dist < this.data[parent].dist) {
+        [this.data[i], this.data[parent]] = [this.data[parent], this.data[i]];
+        i = parent;
+      } else break;
+    }
+  }
+  private _sinkDown(i: number) {
+    const n = this.data.length;
+    while (true) {
+      let smallest = i;
+      const l = 2 * i + 1, r = 2 * i + 2;
+      if (l < n && this.data[l].dist < this.data[smallest].dist) smallest = l;
+      if (r < n && this.data[r].dist < this.data[smallest].dist) smallest = r;
+      if (smallest !== i) {
+        [this.data[i], this.data[smallest]] = [this.data[smallest], this.data[i]];
+        i = smallest;
+      } else break;
+    }
+  }
+}
+
+const KNOWN = 0, BAND = 1, UNKNOWN = 2;
+
+function wmTeleaInpaint(imageData: ImageData, maskData: Uint8Array, radius: number): ImageData {
+  const w = imageData.width, h = imageData.height;
+  const src = new Float32Array(imageData.data);
+  const out = new Float32Array(src);
+  const state = new Uint8Array(w * h);
+  const dist = new Float32Array(w * h);
+  const heap = new WmMinHeap();
+  const INF = 1e10;
+
+  // Initialize: mask>128 → UNKNOWN, else KNOWN
+  for (let i = 0; i < w * h; i++) {
+    if (maskData[i] > 128) {
+      state[i] = UNKNOWN;
+      dist[i] = INF;
+    } else {
+      state[i] = KNOWN;
+      dist[i] = 0;
+    }
+  }
+
+  // Find boundary: KNOWN pixels adjacent to UNKNOWN → BAND
+  const dx4 = [-1, 1, 0, 0], dy4 = [0, 0, -1, 1];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (state[idx] !== KNOWN) continue;
+      for (let d = 0; d < 4; d++) {
+        const nx = x + dx4[d], ny = y + dy4[d];
+        if (nx >= 0 && nx < w && ny >= 0 && ny < h && state[ny * w + nx] === UNKNOWN) {
+          state[idx] = BAND;
+          dist[idx] = 0;
+          heap.push({ dist: 0, x, y });
+          break;
+        }
+      }
+    }
+  }
+
+  // Fast Marching
+  while (heap.size > 0) {
+    const cur = heap.pop()!;
+    const ci = cur.y * w + cur.x;
+    if (state[ci] === KNOWN) continue;
+    state[ci] = KNOWN;
+
+    // Inpaint this pixel using weighted average of KNOWN neighbors within radius
+    let sumR = 0, sumG = 0, sumB = 0, sumW = 0;
+    const r2 = radius * radius;
+    const rInt = Math.ceil(radius);
+    for (let dy = -rInt; dy <= rInt; dy++) {
+      for (let dx = -rInt; dx <= rInt; dx++) {
+        const nx = cur.x + dx, ny = cur.y + dy;
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+        const ni = ny * w + nx;
+        if (state[ni] !== KNOWN || ni === ci) continue;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > r2) continue;
+        const geoDist = 1.0 / (Math.sqrt(d2) + 1e-6);
+        const levelDist = 1.0 / (1 + Math.abs(dist[ni] - dist[ci]));
+        // Direction factor
+        const dirFactor = Math.max(0.01, (dx * (cur.x - nx) + dy * (cur.y - ny)) / (Math.sqrt(d2) + 1e-6));
+        const weight = geoDist * levelDist * dirFactor;
+        const pi = ni * 4;
+        sumR += out[pi] * weight;
+        sumG += out[pi + 1] * weight;
+        sumB += out[pi + 2] * weight;
+        sumW += weight;
+      }
+    }
+    if (sumW > 0) {
+      const pi = ci * 4;
+      out[pi] = sumR / sumW;
+      out[pi + 1] = sumG / sumW;
+      out[pi + 2] = sumB / sumW;
+      out[pi + 3] = 255;
+    }
+
+    // Update neighbors
+    for (let d = 0; d < 4; d++) {
+      const nx = cur.x + dx4[d], ny = cur.y + dy4[d];
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+      const ni = ny * w + nx;
+      if (state[ni] !== UNKNOWN) continue;
+      const newDist = dist[ci] + 1;
+      if (newDist < dist[ni]) {
+        dist[ni] = newDist;
+        state[ni] = BAND;
+        heap.push({ dist: newDist, x: nx, y: ny });
+      }
+    }
+  }
+
+  const result = new ImageData(w, h);
+  for (let i = 0; i < out.length; i++) {
+    result.data[i] = Math.max(0, Math.min(255, Math.round(out[i])));
+  }
+  return result;
+}
+
+// --- Watermark Mask Painter Component ---
+
+const WM_MIN_ZOOM = 1;
+const WM_MAX_ZOOM = 10;
+const WM_MIN_BRUSH = 5;
+const WM_MAX_BRUSH = 100;
+const WM_MAX_HISTORY = 20;
+
+const WmMaskPainter = ({ imageUrl, width, height, onMaskReady, processing }: {
+  imageUrl: string; width: number; height: number; onMaskReady: (mask: Uint8Array) => void; processing?: boolean;
+}) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const imgCanvasRef = React.useRef<HTMLCanvasElement>(null);
+  const maskCanvasRef = React.useRef<HTMLCanvasElement>(null);
+  const cursorRef = React.useRef<HTMLDivElement>(null);
+
+  const [brushSize, setBrushSize] = useState(30);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [cursorVisible, setCursorVisible] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Computed display rect for the image within the container
+  const [displayRect, setDisplayRect] = useState({ rw: 0, rh: 0, ox: 0, oy: 0 });
+
+  const historyRef = React.useRef<ImageData[]>([]);
+  const historyIndexRef = React.useRef(-1);
+  const lastPosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isDrawingRef = React.useRef(false);
+  const isPanningRef = React.useRef(false);
+  const panStartMouseRef = React.useRef({ x: 0, y: 0 });
+  const panStartValRef = React.useRef({ x: 0, y: 0 });
+  const spaceHeldRef = React.useRef(false);
+
+  const brushSizeRef = React.useRef(brushSize);
+  brushSizeRef.current = brushSize;
+  const zoomRef = React.useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = React.useRef(pan);
+  panRef.current = pan;
+
+  useEffect(() => {
+    const imgCanvas = imgCanvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (!imgCanvas || !maskCanvas) return;
+    imgCanvas.width = width;
+    imgCanvas.height = height;
+    maskCanvas.width = width;
+    maskCanvas.height = height;
+    const imgCtx = imgCanvas.getContext('2d')!;
+    const maskCtx = maskCanvas.getContext('2d')!;
+    maskCtx.clearRect(0, 0, width, height);
+    bgLoadImage(imageUrl).then((img) => {
+      imgCtx.clearRect(0, 0, width, height);
+      imgCtx.drawImage(img, 0, 0, width, height);
+      historyRef.current = [];
+      historyIndexRef.current = -1;
+      saveMaskHistory();
+    });
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [imageUrl, width, height]);
+
+  // Track container size → compute exact display rect for the image
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || width === 0 || height === 0) return;
+    const computeRect = () => {
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      if (cw === 0 || ch === 0) return;
+      const imageAspect = width / height;
+      const containerAspect = cw / ch;
+      let rw: number, rh: number, ox: number, oy: number;
+      if (imageAspect > containerAspect) { rw = cw; rh = cw / imageAspect; ox = 0; oy = (ch - rh) / 2; }
+      else { rh = ch; rw = ch * imageAspect; ox = (cw - rw) / 2; oy = 0; }
+      setDisplayRect({ rw, rh, ox, oy });
+    };
+    computeRect();
+    const observer = new ResizeObserver(computeRect);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [width, height]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        spaceHeldRef.current = true;
+        if (cursorRef.current) cursorRef.current.style.display = 'none';
+        if (containerRef.current) containerRef.current.style.cursor = 'grab';
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceHeldRef.current = false;
+        if (containerRef.current) containerRef.current.style.cursor = 'none';
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
+  }, []);
+
+  const getContainedRect = React.useCallback(() => {
+    if (displayRect.rw > 0) return { offsetX: displayRect.ox, offsetY: displayRect.oy, renderWidth: displayRect.rw, renderHeight: displayRect.rh };
+    return { offsetX: 0, offsetY: 0, renderWidth: 1, renderHeight: 1 };
+  }, [displayRect]);
+
+  const clampPan = React.useCallback((px: number, py: number, z: number) => {
+    if (z <= 1) return { x: 0, y: 0 };
+    const container = containerRef.current;
+    if (!container) return { x: px, y: py };
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    return { x: Math.max(cw * (1 - z), Math.min(0, px)), y: Math.max(ch * (1 - z), Math.min(0, py)) };
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        const delta = e.deltaY > 0 ? -2 : 2;
+        setBrushSize(prev => Math.max(WM_MIN_BRUSH, Math.min(WM_MAX_BRUSH, prev + delta)));
+      } else {
+        const rect = container.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const oldZoom = zoomRef.current;
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        let newZoom = Math.max(WM_MIN_ZOOM, Math.min(WM_MAX_ZOOM, oldZoom * factor));
+        if (Math.abs(newZoom - 1) < 0.05) newZoom = 1;
+        let nx = mx - (mx - panRef.current.x) * (newZoom / oldZoom);
+        let ny = my - (my - panRef.current.y) * (newZoom / oldZoom);
+        if (newZoom <= 1) { nx = 0; ny = 0; }
+        else {
+          const cw2 = container.clientWidth; const ch2 = container.clientHeight;
+          nx = Math.max(cw2 * (1 - newZoom), Math.min(0, nx));
+          ny = Math.max(ch2 * (1 - newZoom), Math.min(0, ny));
+        }
+        setZoom(newZoom);
+        setPan({ x: nx, y: ny });
+      }
+    };
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  const saveMaskHistory = React.useCallback(() => {
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+    const ctx = maskCanvas.getContext('2d')!;
+    const data = ctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    const idx = historyIndexRef.current;
+    historyRef.current = historyRef.current.slice(0, idx + 1);
+    historyRef.current.push(data);
+    if (historyRef.current.length > WM_MAX_HISTORY) historyRef.current.shift();
+    historyIndexRef.current = historyRef.current.length - 1;
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(false);
+  }, []);
+
+  const undo = React.useCallback(() => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current--;
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+    maskCanvas.getContext('2d')!.putImageData(historyRef.current[historyIndexRef.current], 0, 0);
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(true);
+  }, []);
+
+  const redo = React.useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current++;
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+    maskCanvas.getContext('2d')!.putImageData(historyRef.current[historyIndexRef.current], 0, 0);
+    setCanUndo(true);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+  }, []);
+
+  const getCanvasPos = React.useCallback((clientX: number, clientY: number) => {
+    const canvas = imgCanvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return null;
+    const rect = container.getBoundingClientRect();
+    const cx = clientX - rect.left;
+    const cy = clientY - rect.top;
+    const lx = (cx - panRef.current.x) / zoomRef.current;
+    const ly = (cy - panRef.current.y) / zoomRef.current;
+    const { offsetX, offsetY, renderWidth, renderHeight } = getContainedRect();
+    const scaleX = canvas.width / renderWidth;
+    const scaleY = canvas.height / renderHeight;
+    return { x: (lx - offsetX) * scaleX, y: (ly - offsetY) * scaleY };
+  }, [getContainedRect]);
+
+  const paint = React.useCallback((x: number, y: number) => {
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+    const ctx = maskCanvas.getContext('2d')!;
+    const { renderWidth } = getContainedRect();
+    const baseScale = maskCanvas.width / renderWidth;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.arc(x, y, (brushSizeRef.current / 2) * baseScale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }, [getContainedRect]);
+
+  const paintLine = React.useCallback((from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+    const ctx = maskCanvas.getContext('2d')!;
+    const { renderWidth } = getContainedRect();
+    const baseScale = maskCanvas.width / renderWidth;
+    const r = (brushSizeRef.current / 2) * baseScale;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.lineWidth = r * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.restore();
+  }, [getContainedRect]);
+
+  const moveCursor = React.useCallback((clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    const cursor = cursorRef.current;
+    if (!container || !cursor) return;
+    const rect = container.getBoundingClientRect();
+    cursor.style.left = `${clientX - rect.left}px`;
+    cursor.style.top = `${clientY - rect.top}px`;
+  }, []);
+
+  const handlePointerDown = React.useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    // Always capture on the container so pointer events keep flowing even outside bounds
+    if (containerRef.current) containerRef.current.setPointerCapture(e.pointerId);
+    if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceHeldRef.current)) {
+      isPanningRef.current = true;
+      panStartMouseRef.current = { x: e.clientX, y: e.clientY };
+      panStartValRef.current = { ...panRef.current };
+      if (containerRef.current) containerRef.current.style.cursor = 'grabbing';
+      return;
+    }
+    if (e.button === 0) {
+      isDrawingRef.current = true;
+      const pos = getCanvasPos(e.clientX, e.clientY);
+      if (pos) { paint(pos.x, pos.y); lastPosRef.current = pos; }
+    }
+  }, [getCanvasPos, paint]);
+
+  const handlePointerMove = React.useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && !spaceHeldRef.current && !isPanningRef.current) {
+      moveCursor(e.clientX, e.clientY);
+      if (!cursorVisible) setCursorVisible(true);
+    }
+    if (isPanningRef.current) {
+      const dx = e.clientX - panStartMouseRef.current.x;
+      const dy = e.clientY - panStartMouseRef.current.y;
+      setPan(clampPan(panStartValRef.current.x + dx, panStartValRef.current.y + dy, zoomRef.current));
+      return;
+    }
+    if (!isDrawingRef.current) return;
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    if (pos) {
+      if (lastPosRef.current) paintLine(lastPosRef.current, pos);
+      else paint(pos.x, pos.y);
+      lastPosRef.current = pos;
+    }
+  }, [cursorVisible, getCanvasPos, paint, paintLine, moveCursor, clampPan]);
+
+  const handlePointerUp = React.useCallback((e: React.PointerEvent) => {
+    if (containerRef.current) containerRef.current.releasePointerCapture(e.pointerId);
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
+      if (containerRef.current) containerRef.current.style.cursor = spaceHeldRef.current ? 'grab' : 'none';
+      return;
+    }
+    if (isDrawingRef.current) { isDrawingRef.current = false; lastPosRef.current = null; saveMaskHistory(); }
+  }, [saveMaskHistory]);
+
+  const handlePointerLeave = React.useCallback(() => {
+    setCursorVisible(false);
+    // Don't stop panning/drawing here — pointer capture keeps events flowing via handlePointerUp
+  }, []);
+
+  const zoomTo = React.useCallback((newZoom: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const oldZoom = zoomRef.current;
+    const z = Math.max(WM_MIN_ZOOM, Math.min(WM_MAX_ZOOM, newZoom));
+    const mx = cw / 2; const my = ch / 2;
+    let nx = mx - (mx - panRef.current.x) * (z / oldZoom);
+    let ny = my - (my - panRef.current.y) * (z / oldZoom);
+    const clamped = z <= 1 ? { x: 0, y: 0 } : clampPan(nx, ny, z);
+    setZoom(z);
+    setPan(clamped);
+  }, [clampPan]);
+
+  const handleComplete = React.useCallback(() => {
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+    const ctx = maskCanvas.getContext('2d')!;
+    const maskImageData = ctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    // Extract alpha-like mask: red channel > 0 means masked
+    const mask = new Uint8Array(maskCanvas.width * maskCanvas.height);
+    for (let i = 0; i < mask.length; i++) {
+      mask[i] = maskImageData.data[i * 4 + 3] > 0 ? 255 : 0;
+    }
+    onMaskReady(mask);
+  }, [onMaskReady]);
+
+  const cursorSize = brushSize * zoom;
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Controls — top bar */}
+      <div className="flex items-center gap-2 flex-wrap pb-2 shrink-0">
+        <div className="flex items-center gap-2 flex-1 min-w-[140px]">
+          <div className="shrink-0 rounded-full bg-foreground" style={{ width: Math.max(8, brushSize * 0.4), height: Math.max(8, brushSize * 0.4) }} />
+          <input type="range" min={WM_MIN_BRUSH} max={WM_MAX_BRUSH} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-1 accent-secondary" disabled={processing} />
+          <span className="text-[10px] text-foreground/50 w-6 text-right tabular-nums font-bold">{brushSize}</span>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button onClick={undo} disabled={!canUndo || processing} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="실행 취소"><Undo2 className="w-3.5 h-3.5" /></button>
+          <button onClick={redo} disabled={!canRedo || processing} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="다시 실행"><Redo2 className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => zoomTo(zoom / 1.3)} disabled={zoom <= WM_MIN_ZOOM || processing} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="축소"><ZoomOut className="w-3.5 h-3.5" /></button>
+          <button onClick={() => zoomTo(1)} disabled={zoom === 1 || processing} className="neo-btn px-1.5 py-1 rounded-lg disabled:opacity-30 text-[10px] tabular-nums min-w-[2.5rem] text-center font-bold" title="초기화">{Math.round(zoom * 100)}%</button>
+          <button onClick={() => zoomTo(zoom * 1.3)} disabled={zoom >= WM_MAX_ZOOM || processing} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="확대"><ZoomIn className="w-3.5 h-3.5" /></button>
+        </div>
+        <button onClick={handleComplete} disabled={processing} className="neo-btn neo-btn-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50">
+          {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+          {processing ? '처리중...' : '적용'}
+        </button>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="relative flex-1 rounded-xl overflow-hidden select-none"
+        style={{ cursor: processing ? 'wait' : 'none', touchAction: 'none' }}
+        onPointerDown={processing ? undefined : handlePointerDown}
+        onPointerMove={processing ? undefined : handlePointerMove}
+        onPointerUp={processing ? undefined : handlePointerUp}
+        onPointerLeave={processing ? undefined : handlePointerLeave}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <div
+          className="absolute inset-0 origin-top-left pointer-events-none"
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+        >
+          <div className="absolute" style={{ left: displayRect.ox, top: displayRect.oy, width: displayRect.rw || '100%', height: displayRect.rh || '100%' }}>
+            <canvas ref={imgCanvasRef} className="w-full h-full block" />
+            <canvas ref={maskCanvasRef} className="absolute inset-0 w-full h-full block" />
+          </div>
+        </div>
+        <div
+          ref={cursorRef}
+          className="absolute pointer-events-none"
+          style={{
+            width: cursorSize, height: cursorSize,
+            borderRadius: '50%', border: '2px solid rgba(255,255,255,0.8)',
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.3)', transform: 'translate(-50%, -50%)',
+            display: cursorVisible && !processing ? 'block' : 'none',
+          }}
+        />
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium pointer-events-none">
+          마스크 모드 — 제거할 영역을 칠하세요
+        </div>
+        {zoom > 1 && (
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium tabular-nums pointer-events-none">
+            {Math.round(zoom * 100)}%
+          </div>
+        )}
+        {processing && (
+          <div className="absolute inset-0 bg-foreground/30 flex items-center justify-center z-10">
+            <div className="flex items-center gap-2 px-4 py-2 bg-foreground/70 rounded-lg">
+              <Loader2 className="w-5 h-5 text-white animate-spin" />
+              <span className="text-white text-sm font-bold">워터마크 제거 중...</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Watermark Remover Content Component ---
+
+const WatermarkRemoverContent = () => {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<WmStatus>('idle');
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [wmProcessing, setWmProcessing] = useState(false);
+  const [imageWidth, setImageWidth] = useState(0);
+  const [imageHeight, setImageHeight] = useState(0);
+  const [inpaintRadius, setInpaintRadius] = useState(WM_DEFAULT_INPAINT_RADIUS);
+  const [downloadFormat, setDownloadFormat] = useState<BgImageFormat>('png');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [sliderPosition, setSliderPosition] = useState(50);
+  const sliderRef = React.useRef<HTMLDivElement>(null);
+  const isDragging = React.useRef(false);
+  const originalImageDataRef = React.useRef<ImageData | null>(null);
+  const maskRef = React.useRef<Uint8Array | null>(null);
+
+  const wmValidateFile = (file: File): string | null => {
+    if (!WM_ACCEPTED_TYPES.includes(file.type)) return 'PNG, JPEG, WEBP 형식만 지원합니다.';
+    if (file.size > WM_MAX_FILE_SIZE) return '파일 크기는 20MB 이하여야 합니다.';
+    return null;
+  };
+
+  const handleImageFile = async (file: File) => {
+    const validationError = wmValidateFile(file);
+    if (validationError) { setError(validationError); return; }
+    setError(null);
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setOriginalUrl(url);
+    setCurrentUrl(url);
+    setResultUrl(null);
+    setSliderPosition(50);
+    setProgress(0);
+
+    try {
+      const dims = await bgGetImageDimensions(url);
+      setImageWidth(dims.width);
+      setImageHeight(dims.height);
+      // Pre-load image data for inpainting
+      const img = await bgLoadImage(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = dims.width;
+      canvas.height = dims.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      originalImageDataRef.current = ctx.getImageData(0, 0, dims.width, dims.height);
+    } catch {
+      setImageWidth(0);
+      setImageHeight(0);
+    }
+
+    setStatus('masking');
+  };
+
+  const handleMaskReady = async (mask: Uint8Array) => {
+    maskRef.current = mask;
+    if (!originalImageDataRef.current) { setError('원본 이미지 데이터를 불러올 수 없습니다.'); return; }
+
+    // Check if any pixel is masked
+    let hasMask = false;
+    for (let i = 0; i < mask.length; i++) { if (mask[i] > 128) { hasMask = true; break; } }
+    if (!hasMask) { setError('마스크를 칠해주세요. 제거할 영역을 선택하지 않았습니다.'); return; }
+
+    setWmProcessing(true);
+    setError(null);
+
+    // Run inpainting via setTimeout to keep UI responsive
+    await new Promise<void>((resolve) => {
+      setTimeout(() => {
+        try {
+          const result = wmTeleaInpaint(originalImageDataRef.current!, mask, inpaintRadius);
+          // Convert result to blob URL and update current image
+          const canvas = document.createElement('canvas');
+          canvas.width = imageWidth;
+          canvas.height = imageHeight;
+          const ctx = canvas.getContext('2d')!;
+          ctx.putImageData(result, 0, 0);
+          // Update the working image data for next round
+          originalImageDataRef.current = result;
+          const newUrl = canvas.toDataURL('image/png');
+          // Revoke old currentUrl if it's different from originalUrl
+          if (currentUrl && currentUrl !== originalUrl) URL.revokeObjectURL(currentUrl);
+          setCurrentUrl(newUrl);
+          setResultUrl(newUrl);
+        } catch (err: any) {
+          setError(err.message || '인페인팅 처리 중 오류가 발생했습니다.');
+        }
+        setWmProcessing(false);
+        resolve();
+      }, 50);
+    });
+  };
+
+  const handleDownload = async () => {
+    if (!currentUrl || !imageFile) return;
+    try {
+      const img = await bgLoadImage(currentUrl);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const blob = await bgCanvasToBlob(canvas, downloadFormat);
+      const baseName = imageFile.name.replace(/\.[^.]+$/, '');
+      bgDownloadBlob(blob, `${baseName}_wm-removed.${downloadFormat}`);
+    } catch { /* download failed */ }
+  };
+
+  const resetAll = () => {
+    if (originalUrl) URL.revokeObjectURL(originalUrl);
+    if (currentUrl && currentUrl !== originalUrl) URL.revokeObjectURL(currentUrl);
+    setImageFile(null);
+    setOriginalUrl(null);
+    setCurrentUrl(null);
+    setResultUrl(null);
+    setStatus('idle');
+    setProgress(0);
+    setError(null);
+    setImageWidth(0);
+    setImageHeight(0);
+    setInpaintRadius(WM_DEFAULT_INPAINT_RADIUS);
+    setSliderPosition(50);
+    setWmProcessing(false);
+    originalImageDataRef.current = null;
+    maskRef.current = null;
+  };
+
+  const goBackToMasking = () => {
+    setResultUrl(null);
+    setStatus('masking');
+    setProgress(0);
+    setError(null);
+  };
+
+  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false); const file = e.dataTransfer.files[0]; if (file) handleImageFile(file); };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false); };
+
+  // Slider handlers
+  const updateSliderPosition = React.useCallback((clientX: number) => {
+    const rect = sliderRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    setSliderPosition((x / rect.width) * 100);
+  }, []);
+  const handleSliderPointerDown = React.useCallback((e: React.PointerEvent) => {
+    isDragging.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    updateSliderPosition(e.clientX);
+  }, [updateSliderPosition]);
+  const handleSliderPointerMove = React.useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    updateSliderPosition(e.clientX);
+  }, [updateSliderPosition]);
+  const handleSliderPointerUp = React.useCallback(() => { isDragging.current = false; }, []);
+
+  // Upload state (idle)
+  if (status === 'idle') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div
+          className={`frame-dropzone w-full max-w-lg p-10 rounded-2xl text-center cursor-pointer neo-card-static ${isDragOver ? 'frame-dropzone-active' : ''}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => document.getElementById('wm-image-input')?.click()}
+        >
+          <input
+            id="wm-image-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageFile(file); }}
+          />
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+            <Droplets className="w-10 h-10 text-secondary" />
+          </div>
+          <p className="text-lg font-bold text-foreground/70 mb-2">이미지를 드래그하거나 클릭하여 업로드</p>
+          <p className="text-sm text-foreground/50">PNG, JPEG, WEBP 지원 (최대 20MB)</p>
+          {error && (
+            <div className="mt-4 p-2.5 rounded-xl flex items-center gap-2 text-xs bg-danger/10 border-2 border-foreground">
+              <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
+              <span className="text-foreground/80">{error}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Masking state
+  if (status === 'masking') {
+    return (
+      <div className="flex-1 flex flex-col min-h-0 p-3 md:p-4">
+        <div className="flex items-center gap-2 mb-2 shrink-0">
+          <Droplets className="w-4 h-4 text-secondary" />
+          <h3 className="text-sm font-black text-foreground uppercase flex-1">워터마크 영역 선택</h3>
+          <div className="flex items-center gap-2 text-xs">
+            <label className="text-foreground/60 font-bold">반경</label>
+            <input
+              type="range" min={3} max={20} value={inpaintRadius}
+              onChange={(e) => setInpaintRadius(Number(e.target.value))}
+              className="w-20 accent-secondary"
+              disabled={wmProcessing}
+            />
+            <span className="text-foreground/50 tabular-nums font-bold w-4 text-right">{inpaintRadius}</span>
+          </div>
+          {resultUrl && (
+            <div className="flex items-center gap-1">
+              <select value={downloadFormat} onChange={(e) => setDownloadFormat(e.target.value as BgImageFormat)} className="neo-btn px-1.5 py-1 rounded-lg text-xs font-bold uppercase bg-content1 border-2 border-foreground">
+                <option value="png">PNG</option>
+                <option value="webp">WebP</option>
+              </select>
+              <button onClick={handleDownload} className="neo-btn neo-btn-primary flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold">
+                <Download className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          <button onClick={resetAll} className="neo-btn px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5">
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        </div>
+        {error && (
+          <div className="mb-2 p-2.5 rounded-xl flex items-center gap-2 text-xs bg-danger/10 border-2 border-foreground shrink-0">
+            <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
+            <span className="text-foreground/80">{error}</span>
+          </div>
+        )}
+        <WmMaskPainter
+          imageUrl={currentUrl!}
+          width={imageWidth}
+          height={imageHeight}
+          onMaskReady={handleMaskReady}
+          processing={wmProcessing}
+        />
+      </div>
+    );
+  }
+
+  // Processing state
+  if (status === 'processing') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="neo-card-static rounded-xl overflow-hidden max-w-lg w-full">
+          <div className="relative">
+            <img src={originalUrl!} alt="Original" className="w-full max-h-[50vh] object-contain bg-foreground/5" />
+            <div className="absolute inset-0 bg-foreground/40 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-10 h-10 text-white animate-spin" />
+              <span className="text-white font-bold text-sm">워터마크 제거 중... {progress}%</span>
+            </div>
+          </div>
+          <div className="p-3">
+            <div className="w-full h-3 bg-content2 rounded-full border-2 border-foreground overflow-hidden">
+              <div className="h-full bg-secondary transition-all duration-200 ease-out" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (status === 'error') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="neo-card-static rounded-xl p-6 text-center space-y-4 max-w-md w-full">
+          <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center neo-card-static">
+            <AlertCircle className="w-8 h-8 text-danger" />
+          </div>
+          <p className="text-sm font-bold text-foreground/80">{error || '워터마크 제거 중 오류가 발생했습니다.'}</p>
+          <div className="flex gap-2 justify-center">
+            <button onClick={goBackToMasking} className="neo-btn neo-btn-secondary px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              다시 마스크
+            </button>
+            <button onClick={resetAll} className="neo-btn px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+              <ImagePlus className="w-4 h-4" />
+              새 이미지
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Done state — Before/After slider + download
+  return (
+    <div className="flex-1 flex flex-col md:flex-row min-h-0 p-3 md:p-4 gap-3">
+      {/* LEFT: Before/After Slider */}
+      <div className="w-full md:flex-1 flex flex-col gap-3 md:overflow-y-auto">
+        <div className="neo-card-static rounded-xl overflow-hidden">
+          <div className="px-3 py-2 border-b-2 border-foreground/20 flex items-center gap-2">
+            <Droplets className="w-4 h-4 text-secondary" />
+            <h3 className="text-sm font-black text-foreground uppercase flex-1">결과 비교</h3>
+            <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border-2 border-foreground">{imageWidth}x{imageHeight}</span>
+            <button onClick={resetAll} className="neo-btn px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="p-3">
+            <div
+              ref={sliderRef}
+              className="relative w-full aspect-[4/3] sm:aspect-video rounded-xl overflow-hidden select-none cursor-col-resize bg-foreground/5"
+              style={{ touchAction: 'none' }}
+              onPointerDown={handleSliderPointerDown}
+              onPointerMove={handleSliderPointerMove}
+              onPointerUp={handleSliderPointerUp}
+            >
+              <img src={resultUrl!} alt="After" className="absolute inset-0 w-full h-full object-contain" draggable={false} />
+              <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}>
+                <img src={originalUrl!} alt="Before" className="absolute inset-0 w-full h-full object-contain" draggable={false} />
+              </div>
+              <div className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 sm:w-8 sm:h-8 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-foreground">
+                  <GripVertical className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/50" />
+                </div>
+              </div>
+              <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium">Before</div>
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium">After</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT: Actions */}
+      <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
+        {/* Re-mask button */}
+        <button onClick={goBackToMasking} className="neo-btn neo-btn-secondary flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold w-full">
+          <Droplets className="w-4 h-4" />
+          다시 마스크
+        </button>
+
+        {/* Download Panel */}
+        <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Download className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-black text-foreground uppercase">다운로드</h3>
+          </div>
+          <div className="flex rounded-lg border-2 border-foreground overflow-hidden">
+            {(['png', 'webp'] as BgImageFormat[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setDownloadFormat(f)}
+                className={`flex-1 text-xs py-2 font-bold uppercase transition-colors ${
+                  downloadFormat === f
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-content1 text-foreground/60 hover:bg-foreground/5'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleDownload} className="flex-1 neo-btn neo-btn-primary flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold">
+              <Download className="w-4 h-4" />
+              다운로드
+            </button>
+          </div>
+        </div>
+
+        {/* New image */}
+        <button onClick={resetAll} className="neo-btn flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold w-full">
+          <ImagePlus className="w-4 h-4" />
+          새 이미지
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // --- Main Component ---
 
 const App = () => {
@@ -2859,6 +3787,20 @@ const App = () => {
               <span className="flex-1 text-left">배경지우기</span>
             </button>
 
+            {/* 워터마크제거 */}
+            <button
+              onClick={() => setCurrentStage('wm-remover')}
+              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                currentStage === 'wm-remover'
+                  ? 'neo-btn neo-btn-secondary border-3 border-foreground shadow-neo-sm'
+                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
+              }`}
+            >
+              {currentStage === 'wm-remover' && <div className="w-1.5 h-4 rounded-full bg-secondary" />}
+              <Droplets className="w-4 h-4 text-secondary" />
+              <span className="flex-1 text-left">워터마크제거</span>
+            </button>
+
             {/* Google 번역기 */}
             <a
               href="https://translate.google.co.kr/"
@@ -2970,11 +3912,65 @@ const App = () => {
             </div>
           )}
 
+          {/* Watermark Remover Sidebar Content */}
+          {currentStage === 'wm-remover' && (
+            <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Droplets className="w-5 h-5 text-secondary" />
+                  <h3 className="text-sm font-black text-foreground uppercase">사용 방법</h3>
+                </div>
+                <div className="space-y-2 text-xs text-foreground/70">
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">1</span>
+                    <span>이미지를 업로드합니다</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">2</span>
+                    <span>브러시로 워터마크 영역을 칠합니다</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">3</span>
+                    <span>"완료" 버튼으로 인페인팅 실행</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">4</span>
+                    <span>Before/After 비교 후 다운로드</span>
+                  </div>
+                </div>
+              </div>
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-2">
+                <h4 className="text-xs font-bold text-foreground/80 uppercase">특징</h4>
+                <ul className="space-y-1 text-xs text-foreground/60">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    Telea 인페인팅 알고리즘
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    브러시 기반 마스크 페인팅
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    줌/팬, Undo/Redo 지원
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    100% 클라이언트 처리 (서버 불필요)
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
         </aside>
 
         {/* RIGHT PANEL: Editor & Output */}
         <main className="flex-1 flex flex-col min-w-0 relative">
-          {currentStage === 'bg-remover' ? (
+          {currentStage === 'wm-remover' ? (
+          /* Watermark Remover */
+          <WatermarkRemoverContent />
+          ) : currentStage === 'bg-remover' ? (
           /* Background Remover */
           <BackgroundRemoverContent />
           ) : currentStage === 'frame-extractor' ? (
