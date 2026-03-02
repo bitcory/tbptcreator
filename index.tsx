@@ -31,8 +31,19 @@ import {
   ImageIcon,
   Film,
   Lock,
-  Palette
+  Palette,
+  Scissors,
+  Download,
+  Eraser,
+  GripVertical,
+  ImagePlus,
+  Undo2,
+  Redo2,
+  ZoomIn,
+  ZoomOut,
+  SlidersHorizontal,
 } from 'lucide-react';
+import { removeBackground } from '@imgly/background-removal';
 
 // --- Types based on PRD Schema v2.0 + V5.0 Lite ---
 
@@ -114,8 +125,15 @@ interface ScenePrompt {
   ko_description: string;
 }
 
-type Stage = 'stage1' | 'stage2';
+type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover';
 type Stage2SubPage = 'image' | 'video';
+
+interface ExtractedFrame {
+  id: number;
+  timestamp: number;
+  dataUrl: string;
+  filename: string;
+}
 
 // --- Sample Data from User (Pixar Skeleton) ---
 const SAMPLE_TEMPLATE: Template = {
@@ -614,6 +632,1631 @@ const Stage2Content = ({
   );
 };
 
+// --- Utility Functions ---
+
+const formatTime = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+const formatTimePrecise = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+};
+
+// --- Frame Extractor Component ---
+
+const FrameExtractorContent = () => {
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [frameInterval, setFrameInterval] = useState<number>(1);
+  const [extractedFrames, setExtractedFrames] = useState<ExtractedFrame[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [videoMetadata, setVideoMetadata] = useState<{ width: number; height: number } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [detectedFps, setDetectedFps] = useState<number>(0);
+  const [useAllFrames, setUseAllFrames] = useState(false);
+  const [selectedFrameIds, setSelectedFrameIds] = useState<Set<number>>(new Set());
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [previewFrame, setPreviewFrame] = useState<ExtractedFrame | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  const toggleSelectFrame = (id: number) => {
+    setSelectedFrameIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFrames = () => {
+    if (selectedFrameIds.size === extractedFrames.length) {
+      setSelectedFrameIds(new Set());
+    } else {
+      setSelectedFrameIds(new Set(extractedFrames.map(f => f.id)));
+    }
+  };
+
+  const downloadSelectedFrames = async () => {
+    const targets = extractedFrames.filter(f => selectedFrameIds.has(f.id));
+    for (let i = 0; i < targets.length; i++) {
+      downloadFrame(targets[i]);
+      if (i < targets.length - 1) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+  };
+
+  const handleVideoFile = (file: File) => {
+    if (!file.type.startsWith('video/')) {
+      setExtractionError('동영상 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(file);
+    setVideoUrl(URL.createObjectURL(file));
+    setExtractedFrames([]);
+    setExtractionError(null);
+    setExtractionProgress(0);
+    setDetectedFps(0);
+    setUseAllFrames(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleVideoFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleVideoFile(file);
+  };
+
+  const handleVideoLoaded = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    setVideoDuration(video.duration);
+    setVideoMetadata({ width: video.videoWidth, height: video.videoHeight });
+
+    // Detect FPS using requestVideoFrameCallback
+    const COMMON_FPS = [23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60];
+    const snapToCommonFps = (raw: number): number => {
+      let closest = raw;
+      let minDiff = Infinity;
+      for (const std of COMMON_FPS) {
+        const diff = Math.abs(raw - std);
+        if (diff < minDiff) { minDiff = diff; closest = std; }
+      }
+      // Snap if within 1.5 fps of a standard value
+      return minDiff <= 1.5 ? Math.round(closest) : Math.round(raw);
+    };
+
+    if ('requestVideoFrameCallback' in video) {
+      let frameCount = 0;
+      let startTime = 0;
+      const SAMPLE_COUNT = 30;
+      const detectFps = () => {
+        (video as any).requestVideoFrameCallback((_now: number, metadata: any) => {
+          if (frameCount === 0) {
+            startTime = metadata.mediaTime;
+          }
+          frameCount++;
+          if (frameCount < SAMPLE_COUNT) {
+            detectFps();
+          } else {
+            const elapsed = metadata.mediaTime - startTime;
+            if (elapsed > 0) {
+              const rawFps = (frameCount - 1) / elapsed;
+              setDetectedFps(snapToCommonFps(rawFps));
+            } else {
+              setDetectedFps(30);
+            }
+            video.pause();
+            video.currentTime = 0;
+          }
+        });
+      };
+      video.muted = true;
+      video.currentTime = 0;
+      video.play().then(() => detectFps()).catch(() => setDetectedFps(30));
+    } else {
+      setDetectedFps(30);
+    }
+  };
+
+  const extractFrames = async () => {
+    if (!videoUrl || !videoFile) return;
+
+    setIsExtracting(true);
+    setExtractionError(null);
+    setExtractionProgress(0);
+    setExtractedFrames([]);
+
+    try {
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.preload = 'auto';
+
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('동영상을 로드할 수 없습니다.'));
+      });
+
+      const duration = video.duration;
+      if (!isFinite(duration) || duration <= 0) {
+        throw new Error('동영상 길이를 읽을 수 없습니다.');
+      }
+
+      // Generate timestamps
+      const timestamps: number[] = [];
+      const effectiveInterval = useAllFrames && detectedFps > 0
+        ? 1 / detectedFps
+        : frameInterval;
+
+      for (let t = 0; t < duration; t += effectiveInterval) {
+        timestamps.push(t);
+      }
+
+      // Ensure last frame is included
+      const lastFrameTime = duration - 0.05;
+      if (lastFrameTime > 0) {
+        const lastTs = timestamps[timestamps.length - 1];
+        if (lastTs === undefined || (lastFrameTime - lastTs) > (effectiveInterval * 0.5)) {
+          timestamps.push(lastFrameTime);
+        }
+      }
+
+      if (timestamps.length > 500) {
+        const confirmed = window.confirm(
+          `총 ${timestamps.length}개의 프레임이 추출됩니다. 메모리 사용량이 많을 수 있습니다. 계속하시겠습니까?`
+        );
+        if (!confirmed) {
+          setIsExtracting(false);
+          return;
+        }
+      }
+
+      // Create canvas with 2x upscaling
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth * 2;
+      canvas.height = video.videoHeight * 2;
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      const frames: ExtractedFrame[] = [];
+
+      for (let i = 0; i < timestamps.length; i++) {
+        const timestamp = timestamps[i];
+
+        // Seek to timestamp
+        await new Promise<void>((resolve) => {
+          const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          video.addEventListener('seeked', onSeeked);
+          video.currentTime = timestamp;
+        });
+
+        // Draw frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Export as PNG
+        const dataUrl = canvas.toDataURL('image/png');
+
+        const baseName = videoFile.name.replace(/\.[^.]+$/, '');
+        frames.push({
+          id: i + 1,
+          timestamp,
+          dataUrl,
+          filename: `${baseName}_frame_${String(i + 1).padStart(4, '0')}_${formatTime(timestamp).replace(':', 'm')}s.png`,
+        });
+
+        setExtractionProgress(Math.round(((i + 1) / timestamps.length) * 100));
+      }
+
+      setExtractedFrames(frames);
+    } catch (err: any) {
+      setExtractionError(err.message || '프레임 추출 중 오류가 발생했습니다.');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const downloadFrame = (frame: ExtractedFrame) => {
+    const link = document.createElement('a');
+    link.href = frame.dataUrl;
+    link.download = frame.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadAllFrames = async () => {
+    for (let i = 0; i < extractedFrames.length; i++) {
+      downloadFrame(extractedFrames[i]);
+      if (i < extractedFrames.length - 1) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+  };
+
+  const resetAll = () => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(null);
+    setVideoUrl(null);
+    setExtractedFrames([]);
+    setExtractionError(null);
+    setExtractionProgress(0);
+    setVideoDuration(0);
+    setVideoMetadata(null);
+    setDetectedFps(0);
+    setUseAllFrames(false);
+  };
+
+  const captureCurrentFrame = () => {
+    const video = videoRef.current;
+    if (!video || !videoFile || !videoMetadata) return;
+
+    // Pause to capture the exact visible frame
+    video.pause();
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth * 2;
+    canvas.height = video.videoHeight * 2;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const timestamp = video.currentTime;
+    const baseName = videoFile.name.replace(/\.[^.]+$/, '');
+    const nextId = extractedFrames.length > 0 ? Math.max(...extractedFrames.map(f => f.id)) + 1 : 1;
+
+    setExtractedFrames(prev => [...prev, {
+      id: nextId,
+      timestamp,
+      dataUrl,
+      filename: `${baseName}_frame_${String(nextId).padStart(4, '0')}_${formatTime(timestamp).replace(':', 'm')}s.png`,
+    }]);
+  };
+
+  const captureEndFrame = async () => {
+    const video = videoRef.current;
+    if (!video || !videoFile || !videoMetadata) return;
+
+    // Pause first so seek result stays visible
+    video.pause();
+
+    // Helper: seek and wait
+    const seekTo = (time: number) => new Promise<void>((resolve) => {
+      const onSeeked = () => {
+        video.removeEventListener('seeked', onSeeked);
+        resolve();
+      };
+      video.addEventListener('seeked', onSeeked);
+      video.currentTime = time;
+    });
+
+    // Force seek to absolute maximum — browser clamps to last decodable frame
+    await seekTo(99999);
+
+    // If still not at visual end, double-seek: go back one frame then forward again
+    if (video.currentTime < video.duration - 0.01) {
+      const fps = detectedFps || 30;
+      await seekTo(video.duration - (1 / fps));
+      await seekTo(99999);
+    }
+
+    // Wait for the browser to paint the frame
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 100)));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth * 2;
+    canvas.height = video.videoHeight * 2;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const actualTime = video.currentTime;
+    const baseName = videoFile.name.replace(/\.[^.]+$/, '');
+    const nextId = extractedFrames.length > 0 ? Math.max(...extractedFrames.map(f => f.id)) + 1 : 1;
+
+    setExtractedFrames(prev => [...prev, {
+      id: nextId,
+      timestamp: actualTime,
+      dataUrl,
+      filename: `${baseName}_endframe_${String(nextId).padStart(4, '0')}.png`,
+    }]);
+  };
+
+  const effectiveInterval = useAllFrames && detectedFps > 0 ? 1 / detectedFps : frameInterval;
+  const estimatedFrameCount = videoDuration > 0
+    ? (() => {
+        let count = Math.floor(videoDuration / effectiveInterval);
+        const lastTs = count > 0 ? (count - 1) * effectiveInterval : 0;
+        const lastFrameTime = videoDuration - 0.05;
+        if (lastFrameTime > 0 && (count === 0 || (lastFrameTime - lastTs) > (effectiveInterval * 0.5))) {
+          count += 1;
+        }
+        if (count === 0) count = 1;
+        return count;
+      })()
+    : 0;
+
+  // State: Upload
+  if (!videoFile) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div
+          className={`frame-dropzone w-full max-w-lg p-10 rounded-2xl text-center cursor-pointer neo-card-static ${isDragOver ? 'frame-dropzone-active' : ''}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => document.getElementById('frame-video-input')?.click()}
+        >
+          <input
+            id="frame-video-input"
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+            <Film className="w-10 h-10 text-warning" />
+          </div>
+          <p className="text-lg font-bold text-foreground/70 mb-2">동영상을 드래그하거나 클릭하여 업로드</p>
+          <p className="text-sm text-foreground/50">MP4, WebM, MOV 등 지원</p>
+        </div>
+      </div>
+    );
+  }
+
+  // State: Settings / Extracting / Results
+  return (
+    <div className="flex-1 flex flex-col md:flex-row min-h-0 p-3 md:p-4 gap-3">
+      {/* LEFT: Video + Settings */}
+      <div className="w-full md:w-1/2 shrink-0 flex flex-col gap-3 md:overflow-y-auto">
+        {/* Video Preview */}
+        <div className="neo-card-static rounded-xl p-3">
+          <div
+            className="relative"
+            onDragStart={(e) => e.preventDefault()}
+          >
+            <video
+              ref={videoRef}
+              src={videoUrl!}
+              controls
+              draggable={false}
+              className="w-full max-h-[50vh] rounded-lg border-2 border-foreground select-none object-contain bg-foreground/5"
+              style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+              onLoadedMetadata={handleVideoLoaded}
+            />
+          </div>
+          {videoMetadata && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-primary text-primary-foreground border-2 border-foreground">{videoMetadata.width}x{videoMetadata.height}</span>
+              <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border-2 border-foreground">{formatTime(videoDuration)}</span>
+              {detectedFps > 0 && (
+                <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-danger text-danger-foreground border-2 border-foreground">{detectedFps}fps</span>
+              )}
+              <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-warning text-warning-foreground border-2 border-foreground">출력: {videoMetadata.width * 2}x{videoMetadata.height * 2}</span>
+            </div>
+          )}
+          <div className="flex gap-1.5 mt-2">
+            <button
+              onClick={captureCurrentFrame}
+              disabled={isExtracting || videoDuration <= 0}
+              className="neo-btn neo-btn-primary flex-1 px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-30"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              현재 프레임
+            </button>
+            <button
+              onClick={captureEndFrame}
+              disabled={isExtracting || videoDuration <= 0}
+              className="neo-btn neo-btn-danger flex-1 px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-30"
+            >
+              <Film className="w-3.5 h-3.5" />
+              엔드프레임
+            </button>
+            <button
+              onClick={resetAll}
+              className="neo-btn px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              새로고침
+            </button>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        {isExtracting && (
+          <div className="neo-card-static rounded-xl p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-foreground">진행률</span>
+              <span className="text-xs font-bold text-warning">{extractionProgress}%</span>
+            </div>
+            <div className="w-full h-3 bg-content2 rounded-full border-2 border-foreground overflow-hidden">
+              <div
+                className="h-full bg-warning transition-all duration-200 ease-out"
+                style={{ width: `${extractionProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {extractionError && (
+          <div className="neo-card-static rounded-xl p-2.5 flex items-start gap-1.5 text-xs bg-danger/10">
+            <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0 mt-0.5" />
+            <span className="text-foreground/80">{extractionError}</span>
+          </div>
+        )}
+      </div>
+
+      {/* RIGHT: Results */}
+      <div className="w-full md:w-1/2 flex flex-col min-h-0 min-w-0">
+        {extractedFrames.length > 0 ? (
+          <>
+            {/* Results Header */}
+            <div className="shrink-0 neo-card-static rounded-xl p-2.5 mb-3 space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-warning" />
+                  <h3 className="text-sm font-black text-foreground uppercase">추출 결과</h3>
+                  <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-warning text-warning-foreground border-2 border-foreground">{extractedFrames.length}개 프레임</span>
+                </div>
+                <button
+                  onClick={() => { setExtractedFrames([]); setExtractionProgress(0); setSelectedFrameIds(new Set()); }}
+                  className="neo-btn text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  초기화
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={selectAllFrames}
+                  className={`text-xs font-bold flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 transition-all ${
+                    selectedFrameIds.size === extractedFrames.length
+                      ? 'bg-secondary text-secondary-foreground border-foreground'
+                      : 'bg-content2 text-foreground/60 border-foreground/20 hover:border-foreground/40'
+                  }`}
+                >
+                  <div className={`w-3.5 h-3.5 rounded border-2 border-foreground flex items-center justify-center shrink-0 ${selectedFrameIds.size === extractedFrames.length ? 'bg-secondary' : 'bg-content1'}`}>
+                    {selectedFrameIds.size === extractedFrames.length && <Check className="w-2.5 h-2.5 text-secondary-foreground" />}
+                  </div>
+                  전체 선택
+                </button>
+                {selectedFrameIds.size > 0 ? (
+                  <button
+                    onClick={downloadSelectedFrames}
+                    className="neo-btn neo-btn-primary text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg"
+                  >
+                    <Download className="w-3 h-3" />
+                    선택 다운로드 ({selectedFrameIds.size})
+                  </button>
+                ) : (
+                  <button
+                    onClick={downloadAllFrames}
+                    className="neo-btn neo-btn-primary text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg"
+                  >
+                    <Download className="w-3 h-3" />
+                    전체 다운로드
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Frame Grid */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                {extractedFrames.map((frame) => {
+                  const isSelected = selectedFrameIds.has(frame.id);
+                  return (
+                    <div
+                      key={frame.id}
+                      className={`neo-card-static rounded-xl overflow-hidden group cursor-pointer transition-all ${
+                        isSelected ? 'ring-3 ring-secondary shadow-neo-sm' : ''
+                      }`}
+                      onClick={() => toggleSelectFrame(frame.id)}
+                    >
+                      <div className="relative">
+                        <img
+                          src={frame.dataUrl}
+                          alt={`Frame ${frame.id}`}
+                          className="w-full aspect-video object-cover"
+                        />
+                        {/* Selection checkbox */}
+                        <div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 border-foreground flex items-center justify-center transition-all ${
+                          isSelected ? 'bg-secondary' : 'bg-content1/80'
+                        }`}>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-secondary-foreground" />}
+                        </div>
+                        {/* Hover actions */}
+                        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPreviewFrame(frame); }}
+                            className="neo-btn neo-btn-warning p-1.5 rounded-lg"
+                            title="미리보기"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); downloadFrame(frame); }}
+                            className="neo-btn neo-btn-primary p-1.5 rounded-lg"
+                            title="다운로드"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="px-2 py-1 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-foreground/60">#{frame.id}</span>
+                        <span className="text-[10px] font-mono text-foreground/60">{formatTimePrecise(frame.timestamp)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Preview Modal */}
+            {previewFrame && (
+              <div
+                className="fixed inset-0 bg-foreground/60 z-50 flex items-center justify-center p-4"
+                onClick={() => setPreviewFrame(null)}
+              >
+                <div
+                  className="neo-card-static rounded-2xl max-w-[95vw] max-h-[95vh] flex flex-col animate-scale-in"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-4 py-3 border-b-3 border-foreground flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-warning" />
+                      <span className="text-sm font-black text-foreground">#{previewFrame.id}</span>
+                      <span className="text-xs font-mono text-foreground/60">{formatTimePrecise(previewFrame.timestamp)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => downloadFrame(previewFrame)}
+                        className="neo-btn neo-btn-primary px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        다운로드
+                      </button>
+                      <button
+                        onClick={() => setPreviewFrame(null)}
+                        className="neo-btn neo-btn-danger p-1.5 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-hidden p-3 bg-foreground/5 flex items-center justify-center">
+                    <img
+                      src={previewFrame.dataUrl}
+                      alt={`Frame ${previewFrame.id}`}
+                      className="max-w-full max-h-[calc(95vh-60px)] object-contain rounded-lg border-2 border-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center neo-card-static">
+                <ImageIcon className="w-8 h-8 text-foreground/30" />
+              </div>
+              <p className="text-sm font-bold text-foreground/40">추출된 프레임이 여기에 표시됩니다</p>
+              <p className="text-xs text-foreground/30 mt-1">간격 추출 또는 현재 프레임 캡처를 사용하세요</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Background Remover Types & Constants ---
+
+type BgImageStatus = 'idle' | 'processing' | 'done' | 'error';
+type BgBackgroundType = 'transparent' | 'color' | 'image';
+type BgImageFormat = 'png' | 'webp';
+
+interface BgBackground {
+  type: BgBackgroundType;
+  color: string;
+  imageUrl: string | null;
+}
+
+const BG_PRESET_COLORS = ['#ffffff','#000000','#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#6b7280'];
+const BG_MAX_FILE_SIZE = 20 * 1024 * 1024;
+const BG_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+// --- Background Remover Utilities ---
+
+const bgValidateFile = (file: File): string | null => {
+  if (!BG_ACCEPTED_TYPES.includes(file.type)) {
+    return 'PNG, JPEG, WEBP 형식만 지원합니다.';
+  }
+  if (file.size > BG_MAX_FILE_SIZE) {
+    return '파일 크기는 20MB 이하여야 합니다.';
+  }
+  return null;
+};
+
+const bgLoadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = src;
+  });
+};
+
+const bgCanvasToBlob = (canvas: HTMLCanvasElement, format: BgImageFormat = 'png', quality = 1.0): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const mimeType = format === 'webp' ? 'image/webp' : 'image/png';
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create blob'));
+      },
+      mimeType,
+      quality,
+    );
+  });
+};
+
+const bgDownloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const bgGetImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = url;
+  });
+};
+
+// --- Background Remover Component ---
+
+type BgEditMode = 'compare' | 'erase';
+
+// --- Inline ManualEraser ---
+const BG_MIN_ZOOM = 1;
+const BG_MAX_ZOOM = 10;
+const BG_MIN_BRUSH = 5;
+const BG_MAX_BRUSH = 100;
+const BG_MAX_HISTORY = 20;
+
+const BgManualEraser = ({ imageUrl, width, height, onSave }: {
+  imageUrl: string; width: number; height: number; onSave: (url: string) => void;
+}) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const cursorRef = React.useRef<HTMLDivElement>(null);
+
+  const [brushSize, setBrushSize] = useState(30);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [cursorVisible, setCursorVisible] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  const historyRef = React.useRef<ImageData[]>([]);
+  const historyIndexRef = React.useRef(-1);
+  const lastPosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isDrawingRef = React.useRef(false);
+  const isPanningRef = React.useRef(false);
+  const panStartMouseRef = React.useRef({ x: 0, y: 0 });
+  const panStartValRef = React.useRef({ x: 0, y: 0 });
+  const spaceHeldRef = React.useRef(false);
+
+  const brushSizeRef = React.useRef(brushSize);
+  brushSizeRef.current = brushSize;
+  const zoomRef = React.useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = React.useRef(pan);
+  panRef.current = pan;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    bgLoadImage(imageUrl).then((img) => {
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      historyRef.current = [];
+      historyIndexRef.current = -1;
+      saveToHistory();
+    });
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [imageUrl, width, height]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        spaceHeldRef.current = true;
+        if (cursorRef.current) cursorRef.current.style.display = 'none';
+        if (containerRef.current) containerRef.current.style.cursor = 'grab';
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceHeldRef.current = false;
+        if (containerRef.current) containerRef.current.style.cursor = 'none';
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
+  }, []);
+
+  const getContainedRect = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return { offsetX: 0, offsetY: 0, renderWidth: 1, renderHeight: 1 };
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const imageAspect = canvas.width / canvas.height;
+    const containerAspect = cw / ch;
+    let rw: number, rh: number, ox: number, oy: number;
+    if (imageAspect > containerAspect) { rw = cw; rh = cw / imageAspect; ox = 0; oy = (ch - rh) / 2; }
+    else { rh = ch; rw = ch * imageAspect; ox = (cw - rw) / 2; oy = 0; }
+    return { offsetX: ox, offsetY: oy, renderWidth: rw, renderHeight: rh };
+  }, []);
+
+  const clampPan = React.useCallback((px: number, py: number, z: number) => {
+    if (z <= 1) return { x: 0, y: 0 };
+    const container = containerRef.current;
+    if (!container) return { x: px, y: py };
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    return { x: Math.max(cw * (1 - z), Math.min(0, px)), y: Math.max(ch * (1 - z), Math.min(0, py)) };
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        const delta = e.deltaY > 0 ? -2 : 2;
+        setBrushSize(prev => Math.max(BG_MIN_BRUSH, Math.min(BG_MAX_BRUSH, prev + delta)));
+      } else {
+        const rect = container.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const oldZoom = zoomRef.current;
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        let newZoom = Math.max(BG_MIN_ZOOM, Math.min(BG_MAX_ZOOM, oldZoom * factor));
+        if (Math.abs(newZoom - 1) < 0.05) newZoom = 1;
+        let nx = mx - (mx - panRef.current.x) * (newZoom / oldZoom);
+        let ny = my - (my - panRef.current.y) * (newZoom / oldZoom);
+        if (newZoom <= 1) { nx = 0; ny = 0; }
+        else {
+          const cw = container.clientWidth; const ch = container.clientHeight;
+          nx = Math.max(cw * (1 - newZoom), Math.min(0, nx));
+          ny = Math.max(ch * (1 - newZoom), Math.min(0, ny));
+        }
+        setZoom(newZoom);
+        setPan({ x: nx, y: ny });
+      }
+    };
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  const saveToHistory = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const idx = historyIndexRef.current;
+    historyRef.current = historyRef.current.slice(0, idx + 1);
+    historyRef.current.push(data);
+    if (historyRef.current.length > BG_MAX_HISTORY) historyRef.current.shift();
+    historyIndexRef.current = historyRef.current.length - 1;
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(false);
+  }, []);
+
+  const undo = React.useCallback(() => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current--;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d')!.putImageData(historyRef.current[historyIndexRef.current], 0, 0);
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(true);
+  }, []);
+
+  const redo = React.useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current++;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext('2d')!.putImageData(historyRef.current[historyIndexRef.current], 0, 0);
+    setCanUndo(true);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+  }, []);
+
+  const getCanvasPos = React.useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return null;
+    const rect = container.getBoundingClientRect();
+    const cx = clientX - rect.left;
+    const cy = clientY - rect.top;
+    const lx = (cx - panRef.current.x) / zoomRef.current;
+    const ly = (cy - panRef.current.y) / zoomRef.current;
+    const { offsetX, offsetY, renderWidth, renderHeight } = getContainedRect();
+    const scaleX = canvas.width / renderWidth;
+    const scaleY = canvas.height / renderHeight;
+    return { x: (lx - offsetX) * scaleX, y: (ly - offsetY) * scaleY };
+  }, [getContainedRect]);
+
+  const erase = React.useCallback((x: number, y: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const { renderWidth } = getContainedRect();
+    const baseScale = canvas.width / renderWidth;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, (brushSizeRef.current / 2) * baseScale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }, [getContainedRect]);
+
+  const eraseLine = React.useCallback((from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const { renderWidth } = getContainedRect();
+    const baseScale = canvas.width / renderWidth;
+    const radius = (brushSizeRef.current / 2) * baseScale;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = radius * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.restore();
+  }, [getContainedRect]);
+
+  const moveCursor = React.useCallback((clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    const cursor = cursorRef.current;
+    if (!container || !cursor) return;
+    const rect = container.getBoundingClientRect();
+    cursor.style.left = `${clientX - rect.left}px`;
+    cursor.style.top = `${clientY - rect.top}px`;
+  }, []);
+
+  const handlePointerDown = React.useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (e.button === 1 || (e.button === 0 && spaceHeldRef.current)) {
+      isPanningRef.current = true;
+      panStartMouseRef.current = { x: e.clientX, y: e.clientY };
+      panStartValRef.current = { ...panRef.current };
+      if (containerRef.current) containerRef.current.style.cursor = 'grabbing';
+      return;
+    }
+    if (e.button === 0) {
+      isDrawingRef.current = true;
+      const pos = getCanvasPos(e.clientX, e.clientY);
+      if (pos) { erase(pos.x, pos.y); lastPosRef.current = pos; }
+    }
+  }, [getCanvasPos, erase]);
+
+  const handlePointerMove = React.useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && !spaceHeldRef.current) {
+      moveCursor(e.clientX, e.clientY);
+      if (!cursorVisible) setCursorVisible(true);
+    }
+    if (isPanningRef.current) {
+      const dx = e.clientX - panStartMouseRef.current.x;
+      const dy = e.clientY - panStartMouseRef.current.y;
+      setPan(clampPan(panStartValRef.current.x + dx, panStartValRef.current.y + dy, zoomRef.current));
+      return;
+    }
+    if (!isDrawingRef.current) return;
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    if (pos) {
+      if (lastPosRef.current) eraseLine(lastPosRef.current, pos);
+      else erase(pos.x, pos.y);
+      lastPosRef.current = pos;
+    }
+  }, [cursorVisible, getCanvasPos, erase, eraseLine, moveCursor, clampPan]);
+
+  const handlePointerUp = React.useCallback(() => {
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
+      if (containerRef.current) containerRef.current.style.cursor = spaceHeldRef.current ? 'grab' : 'none';
+      return;
+    }
+    if (isDrawingRef.current) { isDrawingRef.current = false; lastPosRef.current = null; saveToHistory(); }
+  }, [saveToHistory]);
+
+  const handlePointerLeave = React.useCallback(() => {
+    setCursorVisible(false);
+    if (isPanningRef.current) { isPanningRef.current = false; return; }
+    if (isDrawingRef.current) { isDrawingRef.current = false; lastPosRef.current = null; saveToHistory(); }
+  }, [saveToHistory]);
+
+  const zoomTo = React.useCallback((newZoom: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const oldZoom = zoomRef.current;
+    const z = Math.max(BG_MIN_ZOOM, Math.min(BG_MAX_ZOOM, newZoom));
+    const mx = cw / 2; const my = ch / 2;
+    let nx = mx - (mx - panRef.current.x) * (z / oldZoom);
+    let ny = my - (my - panRef.current.y) * (z / oldZoom);
+    const clamped = z <= 1 ? { x: 0, y: 0 } : clampPan(nx, ny, z);
+    setZoom(z);
+    setPan(clamped);
+  }, [clampPan]);
+
+  const handleSave = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob((blob) => { if (blob) onSave(URL.createObjectURL(blob)); }, 'image/png');
+  }, [onSave]);
+
+  const cursorSize = brushSize * zoom;
+
+  return (
+    <div className="space-y-3">
+      <div
+        ref={containerRef}
+        className="relative w-full aspect-[4/3] sm:aspect-video rounded-xl overflow-hidden select-none checkerboard-bg"
+        style={{ cursor: 'none', touchAction: 'none' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
+      >
+        <div
+          className="absolute inset-0 origin-top-left pointer-events-none"
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+        >
+          <canvas ref={canvasRef} className="w-full h-full block" style={{ objectFit: 'contain' }} />
+        </div>
+        <div
+          ref={cursorRef}
+          className="absolute pointer-events-none"
+          style={{
+            width: cursorSize, height: cursorSize,
+            borderRadius: '50%', border: '2px solid rgba(255,255,255,0.8)',
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.3)', transform: 'translate(-50%, -50%)',
+            display: cursorVisible ? 'block' : 'none',
+          }}
+        />
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium">
+          지우개 모드
+        </div>
+        {zoom > 1 && (
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium tabular-nums">
+            {Math.round(zoom * 100)}%
+          </div>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-1 min-w-[140px]">
+          <div className="shrink-0 rounded-full bg-foreground" style={{ width: Math.max(8, brushSize * 0.4), height: Math.max(8, brushSize * 0.4) }} />
+          <input type="range" min={BG_MIN_BRUSH} max={BG_MAX_BRUSH} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-1 accent-danger" />
+          <span className="text-[10px] text-foreground/50 w-6 text-right tabular-nums font-bold">{brushSize}</span>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button onClick={undo} disabled={!canUndo} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="실행 취소"><Undo2 className="w-3.5 h-3.5" /></button>
+          <button onClick={redo} disabled={!canRedo} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="다시 실행"><Redo2 className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => zoomTo(zoom / 1.3)} disabled={zoom <= BG_MIN_ZOOM} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="축소"><ZoomOut className="w-3.5 h-3.5" /></button>
+          <button onClick={() => zoomTo(1)} disabled={zoom === 1} className="neo-btn px-1.5 py-1 rounded-lg disabled:opacity-30 text-[10px] tabular-nums min-w-[2.5rem] text-center font-bold" title="초기화">{Math.round(zoom * 100)}%</button>
+          <button onClick={() => zoomTo(zoom * 1.3)} disabled={zoom >= BG_MAX_ZOOM} className="neo-btn p-1.5 rounded-lg disabled:opacity-30" title="확대"><ZoomIn className="w-3.5 h-3.5" /></button>
+        </div>
+        <button onClick={handleSave} className="neo-btn neo-btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold">
+          <Check className="w-3.5 h-3.5" />
+          완료
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// --- Background Remover Component ---
+
+const BackgroundRemoverContent = () => {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [removedBgUrl, setRemovedBgUrl] = useState<string | null>(null);
+  const [editedBgUrl, setEditedBgUrl] = useState<string | null>(null);
+  const [compositeUrl, setCompositeUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<BgImageStatus>('idle');
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [imageWidth, setImageWidth] = useState(0);
+  const [imageHeight, setImageHeight] = useState(0);
+  const [background, setBackground] = useState<BgBackground>({ type: 'transparent', color: '#ffffff', imageUrl: null });
+  const [downloadFormat, setDownloadFormat] = useState<BgImageFormat>('png');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [sliderPosition, setSliderPosition] = useState(50);
+  const [editMode, setEditMode] = useState<BgEditMode>('compare');
+  const sliderRef = React.useRef<HTMLDivElement>(null);
+  const isDragging = React.useRef(false);
+  const bgFileRef = React.useRef<HTMLInputElement>(null);
+
+  // The foreground image is either the manually edited one or the raw removal result
+  const fgUrl = editedBgUrl ?? removedBgUrl;
+
+  // Handle image file
+  const handleImageFile = async (file: File) => {
+    const validationError = bgValidateFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError(null);
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setOriginalUrl(url);
+    setRemovedBgUrl(null);
+    setEditedBgUrl(null);
+    setCompositeUrl(null);
+    setSliderPosition(50);
+    setEditMode('compare');
+    setBackground({ type: 'transparent', color: '#ffffff', imageUrl: null });
+
+    try {
+      const dims = await bgGetImageDimensions(url);
+      setImageWidth(dims.width);
+      setImageHeight(dims.height);
+    } catch {
+      setImageWidth(0);
+      setImageHeight(0);
+    }
+
+    // Start background removal
+    setStatus('processing');
+    setProgress(0);
+    try {
+      const blob = await removeBackground(url, {
+        progress: (_key: string, current: number, total: number) => {
+          if (total > 0) setProgress(Math.round((current / total) * 100));
+        },
+      });
+      const resultUrl = URL.createObjectURL(blob as Blob);
+      setRemovedBgUrl(resultUrl);
+      setStatus('done');
+    } catch (err: any) {
+      setError(err.message || '배경 제거 중 오류가 발생했습니다.');
+      setStatus('error');
+    }
+  };
+
+  // Composite background — uses editedBgUrl if available, otherwise removedBgUrl
+  useEffect(() => {
+    if (!fgUrl || imageWidth === 0 || imageHeight === 0) return;
+
+    const doComposite = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = imageWidth;
+        canvas.height = imageHeight;
+        const ctx = canvas.getContext('2d')!;
+
+        if (background.type === 'color') {
+          ctx.fillStyle = background.color;
+          ctx.fillRect(0, 0, imageWidth, imageHeight);
+        } else if (background.type === 'image' && background.imageUrl) {
+          const bgImg = await bgLoadImage(background.imageUrl);
+          ctx.drawImage(bgImg, 0, 0, imageWidth, imageHeight);
+        }
+
+        const fgImg = await bgLoadImage(fgUrl);
+        ctx.drawImage(fgImg, 0, 0, imageWidth, imageHeight);
+
+        setCompositeUrl(canvas.toDataURL('image/png'));
+      } catch {
+        // composite failed silently
+      }
+    };
+    doComposite();
+  }, [fgUrl, background, imageWidth, imageHeight]);
+
+  // Handle eraser save
+  const handleEraserSave = (url: string) => {
+    setEditedBgUrl(url);
+    setEditMode('compare');
+  };
+
+  // Download
+  const handleDownload = async () => {
+    const sourceUrl = compositeUrl || fgUrl;
+    if (!sourceUrl || !imageFile) return;
+
+    try {
+      const img = await bgLoadImage(sourceUrl);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const blob = await bgCanvasToBlob(canvas, downloadFormat);
+      const baseName = imageFile.name.replace(/\.[^.]+$/, '');
+      bgDownloadBlob(blob, `${baseName}_no-bg.${downloadFormat}`);
+    } catch {
+      // download failed
+    }
+  };
+
+  // Reset
+  const resetAll = () => {
+    if (originalUrl) URL.revokeObjectURL(originalUrl);
+    if (removedBgUrl) URL.revokeObjectURL(removedBgUrl);
+    if (editedBgUrl) URL.revokeObjectURL(editedBgUrl);
+    if (background.imageUrl) URL.revokeObjectURL(background.imageUrl);
+    setImageFile(null);
+    setOriginalUrl(null);
+    setRemovedBgUrl(null);
+    setEditedBgUrl(null);
+    setCompositeUrl(null);
+    setStatus('idle');
+    setProgress(0);
+    setError(null);
+    setImageWidth(0);
+    setImageHeight(0);
+    setBackground({ type: 'transparent', color: '#ffffff', imageUrl: null });
+    setSliderPosition(50);
+    setEditMode('compare');
+  };
+
+  // Drag & drop handlers
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  // Slider handlers
+  const updateSliderPosition = React.useCallback((clientX: number) => {
+    const rect = sliderRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    setSliderPosition((x / rect.width) * 100);
+  }, []);
+
+  const handleSliderPointerDown = React.useCallback((e: React.PointerEvent) => {
+    isDragging.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    updateSliderPosition(e.clientX);
+  }, [updateSliderPosition]);
+
+  const handleSliderPointerMove = React.useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    updateSliderPosition(e.clientX);
+  }, [updateSliderPosition]);
+
+  const handleSliderPointerUp = React.useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  // Background editor handlers
+  const setBgType = (type: BgBackgroundType) => {
+    setBackground(prev => ({ ...prev, type }));
+  };
+
+  const setBgColor = (color: string) => {
+    setBackground(prev => ({ ...prev, type: 'color', color }));
+  };
+
+  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setBackground(prev => ({ ...prev, type: 'image', imageUrl: url }));
+    e.target.value = '';
+  };
+
+  // Upload state (idle, no file)
+  if (!imageFile) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div
+          className={`frame-dropzone w-full max-w-lg p-10 rounded-2xl text-center cursor-pointer neo-card-static ${isDragOver ? 'frame-dropzone-active' : ''}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => document.getElementById('bg-image-input')?.click()}
+        >
+          <input
+            id="bg-image-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImageFile(file);
+            }}
+          />
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+            <Eraser className="w-10 h-10 text-danger" />
+          </div>
+          <p className="text-lg font-bold text-foreground/70 mb-2">이미지를 드래그하거나 클릭하여 업로드</p>
+          <p className="text-sm text-foreground/50">PNG, JPEG, WEBP 지원 (최대 20MB)</p>
+          {error && (
+            <div className="mt-4 p-2.5 rounded-xl flex items-center gap-2 text-xs bg-danger/10 border-2 border-foreground">
+              <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" />
+              <span className="text-foreground/80">{error}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Processing / Done / Error states
+  return (
+    <div className="flex-1 flex flex-col md:flex-row min-h-0 p-3 md:p-4 gap-3">
+      {/* LEFT: Image Preview / Slider / Eraser */}
+      <div className="w-full md:w-1/2 shrink-0 flex flex-col gap-3 md:overflow-y-auto">
+        {status === 'processing' && (
+          <div className="neo-card-static rounded-xl overflow-hidden">
+            <div className="relative">
+              <img
+                src={originalUrl!}
+                alt="Original"
+                className="w-full max-h-[60vh] object-contain rounded-t-lg bg-foreground/5"
+              />
+              <div className="absolute inset-0 bg-foreground/40 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-10 h-10 text-white animate-spin" />
+                <span className="text-white font-bold text-sm">배경 제거 중... {progress}%</span>
+              </div>
+            </div>
+            <div className="p-3">
+              <div className="w-full h-3 bg-content2 rounded-full border-2 border-foreground overflow-hidden">
+                <div className="h-full bg-danger transition-all duration-200 ease-out" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status === 'done' && originalUrl && fgUrl && (
+          <div className="neo-card-static rounded-xl overflow-hidden">
+            {/* Mode toggle: 비교 / 지우개 */}
+            <div className="px-3 py-2 border-b-2 border-foreground/20 flex items-center gap-2">
+              <div className="flex rounded-lg border-2 border-foreground overflow-hidden">
+                <button
+                  onClick={() => setEditMode('compare')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-colors ${
+                    editMode === 'compare'
+                      ? 'bg-secondary text-secondary-foreground'
+                      : 'bg-content1 text-foreground/50 hover:bg-foreground/5'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  비교
+                </button>
+                <button
+                  onClick={() => setEditMode('erase')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-colors ${
+                    editMode === 'erase'
+                      ? 'bg-danger text-danger-foreground'
+                      : 'bg-content1 text-foreground/50 hover:bg-foreground/5'
+                  }`}
+                >
+                  <Eraser className="w-3 h-3" />
+                  지우개
+                </button>
+              </div>
+              <div className="flex-1" />
+              <div className="flex flex-wrap gap-1">
+                <span className="text-[10px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-primary text-primary-foreground border-2 border-foreground">{imageWidth}x{imageHeight}</span>
+              </div>
+              <button
+                onClick={resetAll}
+                className="neo-btn px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Content based on mode */}
+            <div className="p-3">
+              {editMode === 'compare' ? (
+                <>
+                  {/* Before/After Slider */}
+                  <div
+                    ref={sliderRef}
+                    className="relative w-full aspect-[4/3] sm:aspect-video rounded-xl overflow-hidden select-none cursor-col-resize checkerboard-bg"
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={handleSliderPointerDown}
+                    onPointerMove={handleSliderPointerMove}
+                    onPointerUp={handleSliderPointerUp}
+                  >
+                    <img
+                      src={compositeUrl || fgUrl}
+                      alt="After"
+                      className="absolute inset-0 w-full h-full object-contain"
+                      draggable={false}
+                    />
+                    <div
+                      className="absolute inset-0 overflow-hidden"
+                      style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                    >
+                      <img
+                        src={originalUrl}
+                        alt="Before"
+                        className="absolute inset-0 w-full h-full object-contain"
+                        draggable={false}
+                      />
+                    </div>
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg"
+                      style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
+                    >
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 sm:w-8 sm:h-8 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-foreground">
+                        <GripVertical className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/50" />
+                      </div>
+                    </div>
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium">Before</div>
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 bg-foreground/50 rounded text-[10px] sm:text-xs text-white font-medium">After</div>
+                  </div>
+                </>
+              ) : (
+                <BgManualEraser
+                  imageUrl={fgUrl}
+                  width={imageWidth}
+                  height={imageHeight}
+                  onSave={handleEraserSave}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="neo-card-static rounded-xl p-6 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center neo-card-static">
+              <AlertCircle className="w-8 h-8 text-danger" />
+            </div>
+            <p className="text-sm font-bold text-foreground/80">{error || '배경 제거 중 오류가 발생했습니다.'}</p>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => {
+                  if (originalUrl) {
+                    setStatus('processing');
+                    setProgress(0);
+                    setError(null);
+                    removeBackground(originalUrl, {
+                      progress: (_key: string, current: number, total: number) => {
+                        if (total > 0) setProgress(Math.round((current / total) * 100));
+                      },
+                    }).then((blob) => {
+                      const resultUrl = URL.createObjectURL(blob as Blob);
+                      setRemovedBgUrl(resultUrl);
+                      setEditedBgUrl(null);
+                      setStatus('done');
+                    }).catch((err: any) => {
+                      setError(err.message || '배경 제거 중 오류가 발생했습니다.');
+                      setStatus('error');
+                    });
+                  }
+                }}
+                className="neo-btn neo-btn-danger px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                재시도
+              </button>
+              <button
+                onClick={resetAll}
+                className="neo-btn px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+              >
+                <ImagePlus className="w-4 h-4" />
+                새 이미지
+              </button>
+            </div>
+          </div>
+        )}
+
+        {status === 'idle' && originalUrl && (
+          <div className="neo-card-static rounded-xl overflow-hidden">
+            <img src={originalUrl} alt="Original" className="w-full max-h-[60vh] object-contain bg-foreground/5" />
+          </div>
+        )}
+      </div>
+
+      {/* RIGHT: Background Editor & Download */}
+      <div className="w-full md:w-1/2 flex flex-col min-h-0 gap-3 md:overflow-y-auto">
+        {status === 'done' && (
+          <>
+            {/* Background Editor */}
+            <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-danger" />
+                <h3 className="text-sm font-black text-foreground uppercase">배경 설정</h3>
+              </div>
+
+              <div className="flex rounded-lg border-2 border-foreground overflow-hidden">
+                {([
+                  { type: 'transparent' as BgBackgroundType, label: '투명' },
+                  { type: 'color' as BgBackgroundType, label: '단색' },
+                  { type: 'image' as BgBackgroundType, label: '이미지' },
+                ]).map(({ type, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => setBgType(type)}
+                    className={`flex-1 text-xs py-2 font-bold transition-colors ${
+                      background.type === type
+                        ? 'bg-danger text-danger-foreground'
+                        : 'bg-content1 text-foreground/60 hover:bg-foreground/5'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {background.type === 'color' && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {BG_PRESET_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setBgColor(c)}
+                        className={`w-8 h-8 rounded-full border-3 transition-transform hover:scale-110 active:scale-95 ${
+                          background.color === c ? 'border-foreground scale-110' : 'border-foreground/30'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={background.color} onChange={(e) => setBgColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-2 border-foreground" />
+                    <span className="text-xs text-foreground/50 font-mono">{background.color}</span>
+                  </div>
+                </div>
+              )}
+
+              {background.type === 'image' && (
+                <div>
+                  <button onClick={() => bgFileRef.current?.click()} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg frame-dropzone text-sm text-foreground/60 font-bold">
+                    <ImagePlus className="w-4 h-4" />
+                    배경 이미지 선택
+                  </button>
+                  {background.imageUrl && (
+                    <img src={background.imageUrl} alt="Background" className="mt-2 w-full h-20 object-cover rounded-lg border-2 border-foreground" />
+                  )}
+                  <input ref={bgFileRef} type="file" accept="image/*" className="hidden" onChange={handleBgImageUpload} />
+                </div>
+              )}
+
+              {background.type === 'transparent' && (
+                <p className="text-xs text-foreground/50">배경이 투명한 PNG로 저장됩니다.</p>
+              )}
+            </div>
+
+            {/* Download Panel */}
+            <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Download className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-black text-foreground uppercase">다운로드</h3>
+              </div>
+
+              <div className="flex rounded-lg border-2 border-foreground overflow-hidden">
+                {(['png', 'webp'] as BgImageFormat[]).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setDownloadFormat(f)}
+                    className={`flex-1 text-xs py-2 font-bold uppercase transition-colors ${
+                      downloadFormat === f
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-content1 text-foreground/60 hover:bg-foreground/5'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={handleDownload} className="flex-1 neo-btn neo-btn-primary flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold">
+                  <Download className="w-4 h-4" />
+                  다운로드
+                </button>
+                <button onClick={resetAll} className="neo-btn flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold">
+                  <ImagePlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">새 이미지</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {(status === 'processing' || status === 'idle') && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center neo-card-static">
+                <Eraser className="w-8 h-8 text-foreground/30" />
+              </div>
+              <p className="text-sm font-bold text-foreground/40">
+                {status === 'processing' ? '배경을 제거하는 중입니다...' : '배경 편집 옵션이 여기에 표시됩니다'}
+              </p>
+              <p className="text-xs text-foreground/30 mt-1">
+                {status === 'processing' ? '잠시만 기다려주세요' : '이미지를 업로드하면 자동으로 시작됩니다'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- Main Component ---
 
 const App = () => {
@@ -1016,22 +2659,24 @@ const App = () => {
                 2단계
               </button>
             </div>
-            <a
-              href={currentStage === 'stage1'
-                ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
-                : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
-              }
-              target="_blank"
-              rel="noreferrer"
-              className={`neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold ${
-                currentStage === 'stage1'
-                  ? 'neo-btn-primary'
-                  : 'neo-btn-secondary'
-              }`}
-            >
-              <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드 열기</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            {currentStage !== 'frame-extractor' && currentStage !== 'bg-remover' && (
+              <a
+                href={currentStage === 'stage1'
+                  ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
+                  : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
+                }
+                target="_blank"
+                rel="noreferrer"
+                className={`neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold ${
+                  currentStage === 'stage1'
+                    ? 'neo-btn-primary'
+                    : 'neo-btn-secondary'
+                }`}
+              >
+                <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드 열기</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
           </div>
 
           {/* Stage 1 Sidebar Content */}
@@ -1151,8 +2796,128 @@ const App = () => {
             </div>
           )}
 
+          {/* Frame Extractor Sidebar Content */}
+          {currentStage === 'frame-extractor' && (
+            <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Scissors className="w-5 h-5 text-warning" />
+                  <h3 className="text-sm font-black text-foreground uppercase">사용 방법</h3>
+                </div>
+                <div className="space-y-2 text-xs text-foreground/70">
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">1</span>
+                    <span>동영상 파일을 드래그하거나 선택하여 업로드</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">2</span>
+                    <span>추출 간격(초)을 설정</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">3</span>
+                    <span>"프레임 추출 시작" 버튼 클릭</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">4</span>
+                    <span>개별 또는 전체 다운로드</span>
+                  </div>
+                </div>
+              </div>
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-2">
+                <h4 className="text-xs font-bold text-foreground/80 uppercase">특징</h4>
+                <ul className="space-y-1 text-xs text-foreground/60">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    PNG 무손실 출력
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    기본 2배 업스케일링
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    마지막 프레임 자동 포함
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    추가 설치 없음
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Background Remover Sidebar Content */}
+          {currentStage === 'bg-remover' && (
+            <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Eraser className="w-5 h-5 text-danger" />
+                  <h3 className="text-sm font-black text-foreground uppercase">사용 방법</h3>
+                </div>
+                <div className="space-y-2 text-xs text-foreground/70">
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-danger text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">1</span>
+                    <span>이미지를 업로드하면 AI가 자동으로 배경을 제거합니다</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-danger text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">2</span>
+                    <span>배경 색상/이미지 교체 가능</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-danger text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">3</span>
+                    <span>PNG/WebP 형식으로 다운로드</span>
+                  </div>
+                </div>
+              </div>
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-2">
+                <h4 className="text-xs font-bold text-foreground/80 uppercase">특징</h4>
+                <ul className="space-y-1 text-xs text-foreground/60">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    AI 기반 자동 배경 제거
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    Before/After 비교 슬라이더
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    배경 교체 (투명/단색/이미지)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    추가 설치 없음 (브라우저 내 처리)
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
           {/* SIDEBAR FOOTER: External Tools */}
-          <div className="p-3 md:p-4 border-t-2 border-foreground/20">
+          <div className="p-3 md:p-4 border-t-2 border-foreground/20 space-y-2">
+            <button
+              onClick={() => setCurrentStage('frame-extractor')}
+              className={`flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg ${
+                currentStage === 'frame-extractor'
+                  ? 'neo-btn neo-btn-warning'
+                  : 'neo-btn'
+              }`}
+            >
+              <Scissors className="w-4 h-4" />
+              프레임추출기
+            </button>
+            <button
+              onClick={() => setCurrentStage('bg-remover')}
+              className={`flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg ${
+                currentStage === 'bg-remover'
+                  ? 'neo-btn neo-btn-danger'
+                  : 'neo-btn'
+              }`}
+            >
+              <Eraser className="w-4 h-4" />
+              배경지우기
+            </button>
             <a
               href="https://translate.google.co.kr/"
               target="_blank"
@@ -1168,7 +2933,13 @@ const App = () => {
 
         {/* RIGHT PANEL: Editor & Output */}
         <main className="flex-1 flex flex-col min-w-0 relative">
-          {currentStage === 'stage1' ? (
+          {currentStage === 'bg-remover' ? (
+          /* Background Remover */
+          <BackgroundRemoverContent />
+          ) : currentStage === 'frame-extractor' ? (
+          /* Frame Extractor */
+          <FrameExtractorContent />
+          ) : currentStage === 'stage1' ? (
           /* Stage 1: Prompt Editor */
           <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
             {/* color_palette 정보 패널 */}
