@@ -2518,6 +2518,7 @@ const App = () => {
   };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isImageGenOpen, setIsImageGenOpen] = useState(false);
 
   // Stage 2 state
   const [currentStage, setCurrentStage] = useState<Stage>('stage1');
@@ -2635,166 +2636,241 @@ const App = () => {
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           top-14 md:top-0 h-[calc(100vh-3.5rem)] md:h-auto
         `}>
-          {/* Stage Tabs */}
-          <div className="p-2 md:p-3 border-b-2 border-foreground/20 flex flex-col gap-2">
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setCurrentStage('stage1')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
-                  currentStage === 'stage1'
-                    ? 'bg-primary text-primary-foreground border-3 border-foreground shadow-neo-sm'
-                    : 'text-foreground/60 hover:bg-content2 border-3 border-transparent'
-                }`}
-              >
-                1단계
-              </button>
-              <button
-                onClick={() => setCurrentStage('stage2')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
-                  currentStage === 'stage2'
-                    ? 'bg-secondary text-secondary-foreground border-3 border-foreground shadow-neo-sm'
-                    : 'text-foreground/60 hover:bg-content2 border-3 border-transparent'
-                }`}
-              >
-                2단계
-              </button>
-            </div>
-            {currentStage !== 'frame-extractor' && currentStage !== 'bg-remover' && (
-              <a
-                href={currentStage === 'stage1'
-                  ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
-                  : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
+          {/* 이미지생성기 header */}
+          <div className="p-2 md:p-3 pb-1 shrink-0">
+            <button
+              onClick={() => {
+                if (!isImageGenOpen) {
+                  setIsImageGenOpen(true);
+                  if (currentStage !== 'stage1' && currentStage !== 'stage2') {
+                    setCurrentStage('stage1');
+                  }
+                } else {
+                  setIsImageGenOpen(false);
                 }
-                target="_blank"
-                rel="noreferrer"
-                className={`neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold ${
-                  currentStage === 'stage1'
-                    ? 'neo-btn-primary'
-                    : 'neo-btn-secondary'
-                }`}
-              >
-                <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드 열기</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
+              }}
+              className={`neo-btn flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                (currentStage === 'stage1' || currentStage === 'stage2')
+                  ? 'bg-content3 border-3 border-foreground shadow-neo-sm'
+                  : 'border-3 border-foreground/30 hover:border-foreground/60'
+              }`}
+            >
+              <Wand2 className="w-4 h-4 text-primary" />
+              <span className="flex-1 text-left">이미지생성기</span>
+              {isImageGenOpen ? <ChevronUp className="w-4 h-4 text-foreground/60" /> : <ChevronDown className="w-4 h-4 text-foreground/60" />}
+            </button>
           </div>
 
-          {/* Stage 1 Sidebar Content */}
-          {currentStage === 'stage1' && (
+          {/* 이미지생성기 sub-items + content */}
+          {isImageGenOpen && (
             <>
-              <div className="p-3 md:p-4 border-b-2 border-foreground/20">
-                <h2 className="font-black text-base text-foreground flex items-center gap-2 uppercase">
-                  <Layers className="w-5 h-5 text-secondary" />
-                  구조 (Structure)
-                  <div className="w-2 h-2 rounded-full bg-primary ml-auto" />
-                </h2>
+              <div className="px-2 md:px-3 pb-1 shrink-0">
+                <div className="pl-4 space-y-1">
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setCurrentStage('stage1')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                        currentStage === 'stage1'
+                          ? 'bg-primary text-primary-foreground border-3 border-foreground shadow-neo-sm'
+                          : 'text-foreground/60 hover:bg-content2 border-3 border-foreground/20 hover:border-foreground/40'
+                      }`}
+                    >
+                      {currentStage === 'stage1' && <div className="w-1.5 h-4 rounded-full bg-primary-foreground" />}
+                      1단계
+                    </button>
+                    <button
+                      onClick={() => setCurrentStage('stage2')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                        currentStage === 'stage2'
+                          ? 'bg-secondary text-secondary-foreground border-3 border-foreground shadow-neo-sm'
+                          : 'text-foreground/60 hover:bg-content2 border-3 border-foreground/20 hover:border-foreground/40'
+                      }`}
+                    >
+                      {currentStage === 'stage2' && <div className="w-1.5 h-4 rounded-full bg-secondary-foreground" />}
+                      2단계
+                    </button>
+                  </div>
+                  {(currentStage === 'stage1' || currentStage === 'stage2') && (
+                    <a
+                      href={currentStage === 'stage1'
+                        ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
+                        : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`group neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 ${
+                        currentStage === 'stage1'
+                          ? 'neo-btn-primary hover:shadow-neo-sm'
+                          : 'neo-btn-secondary hover:shadow-neo-sm'
+                      }`}
+                    >
+                      <Wand2 className="w-3.5 h-3.5 transition-transform group-hover:rotate-12" />
+                      <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
-                {(template.prompt_sections || []).map((section, idx) => (
-                  <div key={section.section_id} className="neo-card-static rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
-                      className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-bold text-foreground hover:bg-foreground/5 transition-colors"
-                      style={{ background: tabColors[idx % 4].bg }}
-                    >
-                      {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-foreground/70" /> : <ChevronRight className="w-4 h-4 text-foreground/70" />}
-                      <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
-                      {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                    </button>
-                    {expandedSection === section.section_id && (
-                      <div className="p-2 space-y-1 bg-foreground/5">
-                        {(section.components || []).map((comp) => (
-                          <div
-                            key={comp.component_id}
-                            onClick={() => {
-                              setActiveTab(idx);
-                              setTimeout(() => {
-                                const el = document.getElementById(`comp-${comp.component_id}`);
-                                if (el) {
-                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                  el.classList.add('ring-2', 'ring-primary/50');
-                                  setTimeout(() => el.classList.remove('ring-2', 'ring-primary/50'), 2000);
-                                }
-                              }, 50);
-                              setIsSidebarOpen(false);
-                            }}
-                            className="pl-2 flex items-center gap-2 text-sm text-foreground/70 py-1.5 md:py-1 hover:bg-foreground/5 hover:text-foreground rounded-lg cursor-pointer transition-colors font-medium"
-                          >
-                            <Box className="w-3 h-3 text-secondary/70" />
-                            <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
-                            {(comp.is_active !== false) && <Check className="w-3 h-3 text-primary/70 ml-auto mr-1" />}
+              {/* Stage 1 Sidebar Content */}
+              {currentStage === 'stage1' && (
+                <>
+                  <div className="px-3 md:px-4 py-2 border-y-2 border-foreground/20 shrink-0">
+                    <h2 className="font-black text-base text-foreground flex items-center gap-2 uppercase">
+                      <Layers className="w-5 h-5 text-secondary" />
+                      구조 (Structure)
+                      <div className="w-2 h-2 rounded-full bg-primary ml-auto" />
+                    </h2>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+                    {(template.prompt_sections || []).map((section, idx) => (
+                      <div key={section.section_id} className="neo-card-static rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => setExpandedSection(prev => prev === section.section_id ? null : section.section_id)}
+                          className="w-full px-3 py-2.5 flex items-center gap-2 text-sm font-bold text-foreground hover:bg-foreground/5 transition-colors"
+                          style={{ background: tabColors[idx % 4].bg }}
+                        >
+                          {expandedSection === section.section_id ? <ChevronDown className="w-4 h-4 text-foreground/70" /> : <ChevronRight className="w-4 h-4 text-foreground/70" />}
+                          <span className="truncate flex-1 text-left">{section.section_label_ko || section.section_label || section.section_id}</span>
+                          {(section.is_active !== false) && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                        </button>
+                        {expandedSection === section.section_id && (
+                          <div className="p-2 space-y-1 bg-foreground/5">
+                            {(section.components || []).map((comp) => (
+                              <div
+                                key={comp.component_id}
+                                onClick={() => {
+                                  setActiveTab(idx);
+                                  setTimeout(() => {
+                                    const el = document.getElementById(`comp-${comp.component_id}`);
+                                    if (el) {
+                                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      el.classList.add('ring-2', 'ring-primary/50');
+                                      setTimeout(() => el.classList.remove('ring-2', 'ring-primary/50'), 2000);
+                                    }
+                                  }, 50);
+                                  setIsSidebarOpen(false);
+                                }}
+                                className="pl-2 flex items-center gap-2 text-sm text-foreground/70 py-1.5 md:py-1 hover:bg-foreground/5 hover:text-foreground rounded-lg cursor-pointer transition-colors font-medium"
+                              >
+                                <Box className="w-3 h-3 text-secondary/70" />
+                                <span className="truncate">{comp.component_label_ko || comp.component_label || comp.component_id}</span>
+                                {(comp.is_active !== false) && <Check className="w-3 h-3 text-primary/70 ml-auto mr-1" />}
+                              </div>
+                            ))}
+                            {(!section.components || section.components.length === 0) && (
+                               <div className="pl-2 text-xs text-foreground/50 italic py-1">하위 요소 없음</div>
+                            )}
                           </div>
-                        ))}
-                        {(!section.components || section.components.length === 0) && (
-                           <div className="pl-2 text-xs text-foreground/50 italic py-1">하위 요소 없음</div>
                         )}
+                      </div>
+                    ))}
+
+                    {(!template.prompt_sections || template.prompt_sections.length === 0) && (
+                      <div className="text-center py-10 px-4 text-foreground/60 text-sm">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center neo-card-static">
+                          <FileJson className="w-8 h-8 text-foreground/60" />
+                        </div>
+                        <p className="font-medium">로드된 템플릿이 없습니다.</p>
+                        <button
+                          onClick={() => {
+                            setIsUploadModalOpen(true);
+                          }}
+                          className="mt-3 neo-btn neo-btn-primary px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
+                        >
+                          <Play className="w-3 h-3" />
+                          JSON 업로드 시작
+                        </button>
                       </div>
                     )}
                   </div>
-                ))}
+                </>
+              )}
 
-                {(!template.prompt_sections || template.prompt_sections.length === 0) && (
-                  <div className="text-center py-10 px-4 text-foreground/60 text-sm">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center neo-card-static">
-                      <FileJson className="w-8 h-8 text-foreground/60" />
-                    </div>
-                    <p className="font-medium">로드된 템플릿이 없습니다.</p>
-                    <button
-                      onClick={() => {
-                        setIsUploadModalOpen(true);
-                      }}
-                      className="mt-3 neo-btn neo-btn-primary px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
-                    >
-                      <Play className="w-3 h-3" />
-                      JSON 업로드 시작
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* Stage 2 Sidebar Content */}
+              {currentStage === 'stage2' && (
+                <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+                  <button
+                    onClick={() => setStage2SubPage('image')}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                      stage2SubPage === 'image'
+                        ? 'text-foreground bg-content4 border-3 border-foreground shadow-neo-sm'
+                        : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-foreground/20'
+                    }`}
+                  >
+                    <ImageIcon className="w-5 h-5 text-secondary" />
+                    <span className="flex-1 text-left">이미지 프롬프트</span>
+                    {imagePrompts.length > 0 && (
+                      <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        {imagePrompts.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setStage2SubPage('video')}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                      stage2SubPage === 'video'
+                        ? 'text-foreground bg-danger/10 border-3 border-foreground shadow-neo-sm'
+                        : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-foreground/20'
+                    }`}
+                  >
+                    <Film className="w-5 h-5 text-danger" />
+                    <span className="flex-1 text-left">영상 프롬프트</span>
+                    {videoPrompts.length > 0 && (
+                      <span className="memphis-badge-danger text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        {videoPrompts.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
             </>
           )}
 
-          {/* Stage 2 Sidebar Content */}
-          {currentStage === 'stage2' && (
-            <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
-              {/* Image / Video sub-page buttons */}
-              <button
-                onClick={() => setStage2SubPage('image')}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
-                  stage2SubPage === 'image'
-                    ? 'text-foreground bg-content4 border-3 border-foreground shadow-neo-sm'
-                    : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-transparent'
-                }`}
-              >
-                <ImageIcon className="w-5 h-5 text-secondary" />
-                <span className="flex-1 text-left">이미지 프롬프트</span>
-                {imagePrompts.length > 0 && (
-                  <span className="memphis-badge-secondary text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                    {imagePrompts.length}
-                  </span>
-                )}
-              </button>
+          {/* Other tools */}
+          <div className="p-2 md:p-3 pt-1 border-t-2 border-foreground/20 space-y-1 shrink-0">
+            {/* 프레임추출기 */}
+            <button
+              onClick={() => setCurrentStage('frame-extractor')}
+              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                currentStage === 'frame-extractor'
+                  ? 'neo-btn neo-btn-warning border-3 border-foreground shadow-neo-sm'
+                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
+              }`}
+            >
+              {currentStage === 'frame-extractor' && <div className="w-1.5 h-4 rounded-full bg-warning" />}
+              <Scissors className="w-4 h-4 text-warning" />
+              <span className="flex-1 text-left">프레임추출기</span>
+            </button>
 
-              <button
-                onClick={() => setStage2SubPage('video')}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
-                  stage2SubPage === 'video'
-                    ? 'text-foreground bg-danger/10 border-3 border-foreground shadow-neo-sm'
-                    : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-transparent'
-                }`}
-              >
-                <Film className="w-5 h-5 text-danger" />
-                <span className="flex-1 text-left">영상 프롬프트</span>
-                {videoPrompts.length > 0 && (
-                  <span className="memphis-badge-danger text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                    {videoPrompts.length}
-                  </span>
-                )}
-              </button>
+            {/* 배경지우기 */}
+            <button
+              onClick={() => setCurrentStage('bg-remover')}
+              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                currentStage === 'bg-remover'
+                  ? 'neo-btn neo-btn-danger border-3 border-foreground shadow-neo-sm'
+                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
+              }`}
+            >
+              {currentStage === 'bg-remover' && <div className="w-1.5 h-4 rounded-full bg-danger" />}
+              <Eraser className="w-4 h-4 text-danger" />
+              <span className="flex-1 text-left">배경지우기</span>
+            </button>
 
-            </div>
-          )}
+            {/* Google 번역기 */}
+            <a
+              href="https://translate.google.co.kr/"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all neo-btn border-3 border-foreground/30 hover:border-foreground/60"
+              title="새 탭에서 구글 번역기 열기"
+            >
+              <ExternalLink className="w-4 h-4 text-secondary" />
+              <span className="flex-1 text-left text-foreground/70">Google 번역기 열기</span>
+            </a>
+          </div>
 
           {/* Frame Extractor Sidebar Content */}
           {currentStage === 'frame-extractor' && (
@@ -2894,41 +2970,6 @@ const App = () => {
             </div>
           )}
 
-          {/* SIDEBAR FOOTER: External Tools */}
-          <div className="p-3 md:p-4 border-t-2 border-foreground/20 space-y-2">
-            <button
-              onClick={() => setCurrentStage('frame-extractor')}
-              className={`flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg ${
-                currentStage === 'frame-extractor'
-                  ? 'neo-btn neo-btn-warning'
-                  : 'neo-btn'
-              }`}
-            >
-              <Scissors className="w-4 h-4" />
-              프레임추출기
-            </button>
-            <button
-              onClick={() => setCurrentStage('bg-remover')}
-              className={`flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg ${
-                currentStage === 'bg-remover'
-                  ? 'neo-btn neo-btn-danger'
-                  : 'neo-btn'
-              }`}
-            >
-              <Eraser className="w-4 h-4" />
-              배경지우기
-            </button>
-            <a
-              href="https://translate.google.co.kr/"
-              target="_blank"
-              rel="noreferrer"
-              className="neo-btn neo-btn-secondary flex items-center justify-center gap-2 w-full px-4 py-3.5 text-base font-medium rounded-lg"
-              title="새 탭에서 구글 번역기 열기"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Google 번역기 열기
-            </a>
-          </div>
         </aside>
 
         {/* RIGHT PANEL: Editor & Output */}
