@@ -2584,7 +2584,7 @@ const App = () => {
           >
             <img src="/logo.png" alt="TB Logo" className="w-7 h-7 md:w-8 md:h-8 rounded-lg border-2 border-foreground" />
             <h1 className="text-base md:text-xl font-black text-foreground tracking-tight uppercase">
-              TB PROMPT CREATOR
+              TB STUDIO LAB
             </h1>
           </a>
         </div>
