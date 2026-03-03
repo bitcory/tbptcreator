@@ -14,10 +14,7 @@
     "@google/genai": "^1.30.0",
     "@imgly/background-removal": "^1.7.0",
     "lucide-react": "^0.555.0",
-<<<<<<< HEAD
     "onnxruntime-web": "1.21.0",
-=======
->>>>>>> 46def0278b8a777dd1b20ef02894ab64ebe18cd3
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
