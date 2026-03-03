@@ -2713,21 +2713,12 @@ const BackgroundRemoverContent = () => {
               />
               <div className="absolute inset-0 bg-foreground/40 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="w-10 h-10 text-white animate-spin" />
-                <span className="text-white font-bold text-sm">배경 제거 중... {progress}%</span>
+                <span className="text-white font-bold text-sm">배경 제거 중...</span>
               </div>
             </div>
             <div className="p-3">
-              <div className="w-full h-3 bg-content2 rounded-full border-2 border-foreground overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-200 ease-out"
-                  style={{
-                    width: `${Math.max(progress, 3)}%`,
-                    backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.25) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.25) 75%, transparent 75%)',
-                    backgroundSize: '12px 12px',
-                    backgroundColor: 'hsl(var(--danger))',
-                    animation: 'bg-remover-stripes 0.6s linear infinite',
-                  }}
-                />
+              <div className="w-full h-3 bg-content2 rounded-full border-2 border-foreground overflow-hidden relative">
+                <div className="bg-remover-indeterminate" />
               </div>
             </div>
           </div>
