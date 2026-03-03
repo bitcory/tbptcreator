@@ -290,6 +290,11 @@ body {
   animation: scale-in 0.2s ease-out;
 }
 
+@keyframes bg-remover-stripes {
+  0% { background-position: 0 0; }
+  100% { background-position: 12px 0; }
+}
+
 /* ===== Transitions ===== */
 
 button, a {
