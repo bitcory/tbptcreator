@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TB Studio Lab — 음원분리기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Paperlogy', 'Inter', 'Noto Sans KR', 'sans-serif'],
+          },
+          colors: {
+            background: 'rgb(var(--background) / <alpha-value>)',
+            foreground: 'rgb(var(--foreground) / <alpha-value>)',
+            primary: 'rgb(var(--primary) / <alpha-value>)',
+            'primary-foreground': 'rgb(var(--primary-foreground) / <alpha-value>)',
+            secondary: 'rgb(var(--secondary) / <alpha-value>)',
+            'secondary-foreground': 'rgb(var(--secondary-foreground) / <alpha-value>)',
+            success: 'rgb(var(--success) / <alpha-value>)',
+            warning: 'rgb(var(--warning) / <alpha-value>)',
+            danger: 'rgb(var(--danger) / <alpha-value>)',
+            'danger-foreground': 'rgb(var(--danger-foreground) / <alpha-value>)',
+            content1: 'rgb(var(--content1) / <alpha-value>)',
+            content2: 'rgb(var(--content2) / <alpha-value>)',
+            content3: 'rgb(var(--content3) / <alpha-value>)',
+            content4: 'rgb(var(--content4) / <alpha-value>)',
+          },
+          borderWidth: {
+            '3': '3px',
+          },
+          boxShadow: {
+            'neo-sm': 'var(--shadow-sm)',
+            'neo-md': 'var(--shadow-md)',
+            'neo-lg': 'var(--shadow-lg)',
+            'neo-none': 'none',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/audio-separator.tsx"></script>
+</body>
+
+</html>

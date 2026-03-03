@@ -22,8 +22,16 @@ export default defineConfig(({ mode }) => {
           },
         },
       ],
+      build: {
+        rollupOptions: {
+          input: {
+            main: path.resolve(__dirname, 'index.html'),
+            'audio-separator': path.resolve(__dirname, 'audio-separator.html'),
+          },
+        },
+      },
       optimizeDeps: {
-        exclude: ['@imgly/background-removal'],
+        exclude: ['@imgly/background-removal', 'onnxruntime-web', '@ffmpeg/ffmpeg', '@ffmpeg/util'],
       },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

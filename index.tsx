@@ -43,8 +43,18 @@ import {
   ZoomOut,
   SlidersHorizontal,
   Droplets,
+  Music,
+  Pause,
+  Volume2,
+  VolumeX,
+  Eye,
+  EyeOff,
+  Mic,
+  Film as FilmIcon,
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
+import { stemSeparator, type StemProgress } from './src/audio/StemSeparator';
+import { videoEngine } from './src/video/VideoEngine';
 
 // --- Types based on PRD Schema v2.0 + V5.0 Lite ---
 
@@ -126,7 +136,7 @@ interface ScenePrompt {
   ko_description: string;
 }
 
-type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover' | 'wm-remover';
+type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
 type Stage2SubPage = 'image' | 'video';
 
 interface ExtractedFrame {
@@ -646,6 +656,734 @@ const formatTimePrecise = (seconds: number): string => {
   const s = Math.floor(seconds % 60);
   const ms = Math.floor((seconds % 1) * 100);
   return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+};
+
+// --- Audio Separator Component ---
+
+type AudioSepState = 'idle' | 'loading-model' | 'separating' | 'done' | 'error';
+const FILE_ACCEPT = 'audio/*,video/*,.mp3,.wav,.flac,.ogg,.m4a,.mp4,.webm,.mov';
+const PX_PER_SEC_BASE = 100;
+const TRACK_HEIGHT = 64;
+const LABEL_W = 100;
+const TOGGLE_W = 44;
+const TIMELINE_PAD = 8;
+
+interface SepTrack {
+  id: string;
+  type: 'video' | 'vocals' | 'instrumental';
+  name: string;
+  blob: Blob;
+  url: string;
+  color: string;
+  active: boolean;
+  thumbnails?: string[];
+}
+
+// Helper: get video metadata
+async function getVideoMeta(file: File): Promise<{ duration: number }> {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.playsInline = true;
+    v.muted = true;
+    const t = setTimeout(() => { URL.revokeObjectURL(v.src); reject(new Error('시간 초과')); }, 15000);
+    v.onloadedmetadata = () => { clearTimeout(t); resolve({ duration: v.duration }); URL.revokeObjectURL(v.src); };
+    v.onerror = () => { clearTimeout(t); reject(new Error('메타데이터 읽기 실패')); URL.revokeObjectURL(v.src); };
+    v.src = URL.createObjectURL(file);
+    v.load();
+  });
+}
+
+// Helper: generate thumbnails from video
+async function genThumbnails(videoUrl: string, duration: number, count = 10): Promise<string[]> {
+  const v = document.createElement('video');
+  v.playsInline = true; v.muted = true; v.preload = 'auto'; v.src = videoUrl;
+  await new Promise<void>(r => { const t = setTimeout(r, 8000); v.onloadeddata = () => { clearTimeout(t); r(); }; v.load(); });
+  const thumbs: string[] = [];
+  const interval = duration / count;
+  for (let i = 0; i < count; i++) {
+    v.currentTime = i * interval;
+    await new Promise<void>(r => { const t = setTimeout(r, 3000); v.onseeked = () => { clearTimeout(t); r(); }; });
+    try {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+      c.getContext('2d')!.drawImage(v, 0, 0, 160, 90);
+      thumbs.push(c.toDataURL('image/jpeg', 0.7));
+    } catch { thumbs.push(''); }
+  }
+  return thumbs;
+}
+
+// Thumbnail strip
+const ThumbnailStrip = ({ thumbnails }: { thumbnails: string[] }) => {
+  if (!thumbnails.length) return <div className="w-full h-full bg-content2" />;
+  return (
+    <div className="w-full h-full flex overflow-hidden">
+      {thumbnails.map((thumb, i) => (
+        <div key={i} className="h-full flex-shrink-0" style={{ width: `${100 / thumbnails.length}%` }}>
+          <img src={thumb} alt="" className="w-full h-full object-cover" draggable={false} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Waveform canvas
+const WaveformCanvas = ({ blob, color }: { blob: Blob | null; color: string }) => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  React.useEffect(() => {
+    if (!blob || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d')!;
+
+    const draw = async () => {
+      const audioCtx = new AudioContext({ sampleRate: 44100 });
+      try {
+        const ab = await blob.arrayBuffer();
+        const audioBuf = await audioCtx.decodeAudioData(ab);
+        const data = audioBuf.getChannelData(0);
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const w = rect.width;
+        const h = rect.height;
+        const step = Math.ceil(data.length / w);
+        const mid = h / 2;
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.75;
+
+        for (let x = 0; x < w; x++) {
+          const start = x * step;
+          let min = 0, max = 0;
+          for (let j = 0; j < step && start + j < data.length; j++) {
+            const val = data[start + j];
+            if (val < min) min = val;
+            if (val > max) max = val;
+          }
+          const top = mid + min * mid;
+          const bottom = mid + max * mid;
+          ctx.fillRect(x, top, 1, Math.max(1, bottom - top));
+        }
+      } finally {
+        await audioCtx.close();
+      }
+    };
+    draw().catch(console.error);
+  }, [blob, color]);
+
+  if (!blob) return <div className="w-full h-full" />;
+  return <canvas ref={canvasRef} className="w-full h-full" />;
+};
+
+// Format time as mm:ss.cc
+const fmtTime = (s: number) => {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  const cs = Math.floor((s % 1) * 100);
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+};
+
+const AudioSeparatorContent = () => {
+  const [state, setState] = React.useState<AudioSepState>('idle');
+  const [fileName, setFileName] = React.useState('');
+  const [progressPct, setProgressPct] = React.useState(0);
+  const [progressMsg, setProgressMsg] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [dragging, setDragging] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  // Video state
+  const [videoUrl, setVideoUrl] = React.useState<string>('');
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  // Playback state
+  const [tracks, setTracks] = React.useState<SepTrack[]>([]);
+  const [duration, setDuration] = React.useState(0);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [volume, setVolume] = React.useState(1);
+  const [zoom, setZoom] = React.useState(1);
+  const audioRefs = React.useRef<Map<string, HTMLAudioElement>>(new Map());
+  const rafRef = React.useRef<number>(0);
+  const timelineRef = React.useRef<HTMLDivElement>(null);
+  const [isDraggingHead, setIsDraggingHead] = React.useState(false);
+  const isVideoMode = !!videoUrl;
+
+  const pxPerSec = PX_PER_SEC_BASE * zoom;
+  const timelineWidth = duration * pxPerSec;
+
+  // Sync loop — use video as master clock when available
+  const startSync = React.useCallback(() => {
+    if (rafRef.current) return;
+    const tick = () => {
+      const video = videoRef.current;
+      const audioEls: HTMLAudioElement[] = [...audioRefs.current.values()];
+      // Master clock: video if video mode, else first audio
+      const masterTime = video && !video.paused ? video.currentTime : audioEls[0]?.currentTime;
+      if (masterTime === undefined) { rafRef.current = 0; return; }
+      if (video && video.paused && (!audioEls[0] || audioEls[0].paused)) { rafRef.current = 0; return; }
+      setCurrentTime(masterTime);
+      for (const el of audioEls) {
+        if (Math.abs(el.currentTime - masterTime) > 0.05) el.currentTime = masterTime;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const stopSync = React.useCallback(() => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
+  }, []);
+
+  const togglePlay = React.useCallback(() => {
+    const video = videoRef.current;
+    const allEls: HTMLAudioElement[] = [...audioRefs.current.values()];
+    const els = allEls.filter(el => {
+      const track = tracks.find(t => t.type !== 'video' && t.url === el.src);
+      return track?.active !== false;
+    });
+    const videoTrack = tracks.find(t => t.type === 'video');
+    if (isPlaying) {
+      stopSync();
+      if (video) video.pause();
+      els.forEach(el => el.pause());
+      setIsPlaying(false);
+    } else {
+      const t = currentTime;
+      if (video && videoTrack?.active) { video.currentTime = t; video.play().catch(() => {}); }
+      els.forEach(el => { el.currentTime = t; el.play().catch(() => {}); });
+      startSync();
+      setIsPlaying(true);
+    }
+  }, [isPlaying, currentTime, tracks, startSync, stopSync]);
+
+  const seekTo = React.useCallback((t: number) => {
+    const clamped = Math.max(0, Math.min(duration, t));
+    setCurrentTime(clamped);
+    const video = videoRef.current;
+    if (video) video.currentTime = clamped;
+    audioRefs.current.forEach(el => { el.currentTime = clamped; });
+  }, [duration]);
+
+  // Handle ended
+  React.useEffect(() => {
+    const handler = () => {
+      setIsPlaying(false); stopSync(); setCurrentTime(0);
+      if (videoRef.current) videoRef.current.currentTime = 0;
+      audioRefs.current.forEach(el => { el.currentTime = 0; });
+    };
+    const video = videoRef.current;
+    const audioEl = ([...audioRefs.current.values()] as HTMLAudioElement[])[0];
+    const master = video || audioEl;
+    master?.addEventListener('ended', handler);
+    return () => { master?.removeEventListener('ended', handler); };
+  }, [tracks, stopSync]);
+
+  // Video muted (audio comes from audio elements)
+  React.useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = true;
+  });
+
+  // Sync video seek when paused
+  React.useEffect(() => {
+    if (isPlaying || !videoRef.current) return;
+    if (Math.abs(videoRef.current.currentTime - currentTime) > 0.05) {
+      videoRef.current.currentTime = currentTime;
+    }
+  }, [currentTime, isPlaying]);
+
+  // Volume sync
+  React.useEffect(() => {
+    audioRefs.current.forEach(el => { el.volume = volume; });
+  }, [volume]);
+
+  // Toggle track active
+  const toggleTrack = React.useCallback((id: string) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const next = { ...t, active: !t.active };
+      if (t.type === 'video') {
+        // video track toggle handled via CSS opacity
+      } else {
+        const el = audioRefs.current.get(id);
+        if (el) {
+          if (next.active && isPlaying) { el.currentTime = currentTime; el.play().catch(() => {}); }
+          else el.pause();
+        }
+      }
+      return next;
+    }));
+  }, [isPlaying, currentTime]);
+
+  // Time ruler ticks
+  const rulerTicks = React.useMemo(() => {
+    if (!duration) return [];
+    const minPx = 60;
+    const intervals = [0.5, 1, 2, 5, 10, 15, 30, 60];
+    let interval = intervals.find(i => i * pxPerSec >= minPx) || 60;
+    const ticks: { time: number; x: number }[] = [];
+    for (let t = 0; t <= duration; t += interval) {
+      ticks.push({ time: t, x: t * pxPerSec + TIMELINE_PAD });
+    }
+    return ticks;
+  }, [duration, pxPerSec]);
+
+  // Timeline click-to-seek
+  const handleTimelineClick = React.useCallback((e: React.MouseEvent) => {
+    if (isDraggingHead) return;
+    const container = timelineRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const scrollLeft = container.scrollLeft;
+    const x = e.clientX - rect.left + scrollLeft - TIMELINE_PAD;
+    seekTo(x / pxPerSec);
+  }, [pxPerSec, seekTo, isDraggingHead]);
+
+  // Playhead drag
+  const handlePlayheadDown = React.useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDraggingHead(true);
+    const wasPlaying = isPlaying;
+    if (isPlaying) { stopSync(); audioRefs.current.forEach(el => el.pause()); setIsPlaying(false); }
+
+    const move = (clientX: number) => {
+      const container = timelineRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const x = clientX - rect.left + container.scrollLeft - TIMELINE_PAD;
+      seekTo(x / pxPerSec);
+    };
+
+    const onMouseMove = (ev: MouseEvent) => move(ev.clientX);
+    const onTouchMove = (ev: TouchEvent) => move(ev.touches[0].clientX);
+    const onUp = () => {
+      setIsDraggingHead(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onUp);
+      if (wasPlaying) {
+        const allEls2: HTMLAudioElement[] = [...audioRefs.current.values()];
+        const els = allEls2.filter(el => {
+          const track = tracks.find(t => t.url === el.src);
+          return track?.active !== false;
+        });
+        els.forEach(el => { el.play().catch(() => {}); });
+        startSync();
+        setIsPlaying(true);
+      }
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onTouchMove);
+    window.addEventListener('touchend', onUp);
+  }, [isPlaying, pxPerSec, seekTo, startSync, stopSync, tracks]);
+
+  // Zoom with ctrl+scroll
+  React.useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom(z => Math.max(0.2, Math.min(8, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [state]);
+
+  // Download handler
+  const handleDownload = React.useCallback((track: SepTrack) => {
+    const a = document.createElement('a');
+    a.href = track.url;
+    a.download = `${fileName.replace(/\.[^.]+$/, '')}_${track.name}.wav`;
+    a.click();
+  }, [fileName]);
+
+  const computeOverallProgress = React.useCallback((p: StemProgress) => {
+    let overall = 0;
+    switch (p.stage) {
+      case 'download': overall = p.progress * 0.3; break;
+      case 'extract': overall = 30 + p.progress * 0.05; break;
+      case 'separate': overall = 35 + p.progress * 0.55; break;
+      case 'encode': overall = 90 + p.progress * 0.1; break;
+    }
+    setProgressPct(Math.min(100, overall));
+    setProgressMsg(p.message);
+  }, []);
+
+  const processFile = React.useCallback(async (file: File) => {
+    setFileName(file.name);
+    setError('');
+    setTracks([]);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setVideoUrl('');
+    stopSync();
+
+    const isVideo = file.type.startsWith('video/');
+
+    try {
+      let dur = 0;
+      let thumbnails: string[] = [];
+      let vidUrl = '';
+      let audioBlob: Blob = file;
+
+      if (isVideo) {
+        // 1. Get video metadata + thumbnails
+        setState('loading-model');
+        setProgressPct(0);
+        setProgressMsg('영상 분석 중...');
+        const meta = await getVideoMeta(file);
+        dur = meta.duration;
+        vidUrl = URL.createObjectURL(file);
+        setVideoUrl(vidUrl);
+        setDuration(dur);
+
+        setProgressMsg('썸네일 생성 중...');
+        setProgressPct(3);
+        thumbnails = await genThumbnails(vidUrl, dur, 10);
+
+        // 2. Load FFmpeg + extract audio (progress 5-25%)
+        setProgressMsg('FFmpeg 로딩 중...');
+        setProgressPct(5);
+        if (!videoEngine.isLoaded()) {
+          await videoEngine.load((p) => {
+            setProgressPct(5 + p * 0.1);
+            setProgressMsg('FFmpeg 로딩 중...');
+          });
+        }
+        setProgressMsg('오디오 추출 중...');
+        setProgressPct(15);
+        audioBlob = await videoEngine.extractAudioFromFile(file);
+        setProgressPct(25);
+
+        // 3. Load stem separator model (25-40%)
+        setProgressMsg('AI 모델 준비 중...');
+        await stemSeparator.load((p) => {
+          if (p.stage === 'download') setProgressPct(25 + p.progress * 0.15);
+          setProgressMsg(p.message);
+        });
+      } else {
+        // Audio file: get duration via Web Audio API
+        setState('loading-model');
+        setProgressPct(0);
+        setProgressMsg('AI 모델 로딩 중...');
+        await stemSeparator.load(computeOverallProgress);
+      }
+
+      // 4. Separate stems
+      setState('separating');
+      setProgressMsg('음원 분리 시작...');
+      const result = await stemSeparator.separate(audioBlob, (p) => {
+        if (isVideo) {
+          let overall = 40;
+          if (p.stage === 'extract') overall = 40 + p.progress * 0.05;
+          else if (p.stage === 'separate') overall = 45 + p.progress * 0.45;
+          else if (p.stage === 'encode') overall = 90 + p.progress * 0.1;
+          setProgressPct(Math.min(100, overall));
+        } else {
+          computeOverallProgress(p);
+        }
+        setProgressMsg(p.message);
+      });
+
+      // Get duration from audio if not video
+      if (!isVideo) {
+        const tmpCtx = new AudioContext({ sampleRate: 44100 });
+        const ab = await result.vocals.arrayBuffer();
+        const audioBuf = await tmpCtx.decodeAudioData(ab);
+        dur = audioBuf.duration;
+        await tmpCtx.close();
+        setDuration(dur);
+      }
+
+      const vocalUrl = URL.createObjectURL(result.vocals);
+      const instrUrl = URL.createObjectURL(result.instrumental);
+
+      const newTracks: SepTrack[] = [];
+      if (isVideo) {
+        newTracks.push({
+          id: 'video', type: 'video', name: '영상', blob: file, url: vidUrl,
+          color: '#60a5fa', active: true, thumbnails,
+        });
+      }
+      newTracks.push(
+        { id: 'vocals', type: 'vocals', name: '보컬', blob: result.vocals, url: vocalUrl, color: '#4ade80', active: true },
+        { id: 'instrumental', type: 'instrumental', name: '반주', blob: result.instrumental, url: instrUrl, color: '#fbbf24', active: true },
+      );
+      setTracks(newTracks);
+      setState('done');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
+      setState('error');
+    }
+  }, [computeOverallProgress, stopSync]);
+
+  const handleDrop = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const handleFileChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const reset = React.useCallback(() => {
+    stopSync();
+    if (videoRef.current) videoRef.current.pause();
+    audioRefs.current.forEach(el => el.pause());
+    // Revoke non-video URLs (video URL might still be shared)
+    tracks.forEach(t => { if (t.type !== 'video') URL.revokeObjectURL(t.url); });
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setState('idle');
+    setFileName('');
+    setProgressPct(0);
+    setProgressMsg('');
+    setError('');
+    setTracks([]);
+    setDuration(0);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setZoom(1);
+    setVideoUrl('');
+    if (fileRef.current) fileRef.current.value = '';
+  }, [stopSync, tracks, videoUrl]);
+
+  const displayName = fileName.replace(/\.[^.]+$/, '');
+  const shortName = displayName.length > 30 ? displayName.slice(0, 27) + '...' : displayName;
+  const playheadX = currentTime * pxPerSec + TIMELINE_PAD;
+
+  // --- Idle ---
+  if (state === 'idle') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-2xl">
+          <div
+            className={`border-3 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
+              dragging ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-foreground/30 hover:border-foreground/60 bg-content1'
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload className="w-12 h-12 mx-auto mb-4 text-foreground/40" />
+            <p className="text-lg font-bold mb-2">영상 또는 오디오 파일을 드래그하거나 클릭하세요</p>
+            <p className="text-sm text-foreground/50">MP4, WebM, MOV, MP3, WAV, FLAC, OGG, M4A</p>
+            <input ref={fileRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleFileChange} />
+          </div>
+          <div className="mt-6 text-center text-xs text-foreground/30 space-y-1">
+            <p>UVR-MDX-NET 기반 AI 음원분리 (보컬/반주)</p>
+            <p>모든 처리는 브라우저에서 로컬로 실행됩니다</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Loading / Separating ---
+  if (state === 'loading-model' || state === 'separating') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-2xl">
+          <div className="border-3 border-foreground rounded-2xl p-8 bg-content1 shadow-neo-lg">
+            <div className="flex items-center gap-3 mb-6">
+              <Loader2 className="w-6 h-6 text-warning animate-spin" />
+              <div>
+                <p className="font-bold">{shortName}</p>
+                <p className="text-sm text-foreground/60">{state === 'loading-model' ? 'AI 모델 준비 중...' : '음원 분리 중...'}</p>
+              </div>
+            </div>
+            <div className="w-full bg-content3 rounded-full h-4 mb-3 border-2 border-foreground/20 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-warning to-primary rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
+            </div>
+            <div className="flex justify-between text-xs text-foreground/50">
+              <span>{progressMsg}</span>
+              <span>{Math.round(progressPct)}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Error ---
+  if (state === 'error') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-2xl">
+          <div className="border-3 border-danger rounded-2xl p-8 bg-content1 shadow-neo-lg text-center">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-danger" />
+            <p className="font-bold text-lg mb-2">오류가 발생했습니다</p>
+            <p className="text-sm text-foreground/60 mb-6">{error}</p>
+            <button onClick={reset} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm border-3 border-foreground shadow-neo-md hover:shadow-neo-none hover:translate-x-[3px] hover:translate-y-[3px] transition-all bg-danger text-danger-foreground">
+              <RefreshCw className="w-4 h-4" /> 다시 시도
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Done: Timeline UI ---
+  const videoTrack = tracks.find(t => t.type === 'video');
+  const audioTracks = tracks.filter(t => t.type !== 'video');
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Hidden audio elements (audio tracks only) */}
+      {audioTracks.map(t => (
+        <audio
+          key={t.id}
+          ref={el => { if (el) { el.volume = volume; audioRefs.current.set(t.id, el); } else audioRefs.current.delete(t.id); }}
+          src={t.url}
+          preload="auto"
+        />
+      ))}
+
+      {/* Video Preview (if video mode) */}
+      {isVideoMode && (
+        <div className="flex-shrink-0 flex justify-center p-2 sm:p-4 bg-content2/30">
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="w-full max-h-[35vh] sm:max-h-[50vh] object-contain rounded-md border-3 border-foreground shadow-neo-lg"
+            muted
+            playsInline
+            style={{ opacity: videoTrack?.active ? 1 : 0.3 }}
+          />
+        </div>
+      )}
+
+      {/* Timeline Area */}
+      <div className="flex-1 flex flex-col min-h-0 border-b-3 border-foreground/20">
+        {/* Time Ruler + Tracks */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Ruler row */}
+          <div className="flex shrink-0 border-b-2 border-foreground/10" style={{ height: 28 }}>
+            <div className="shrink-0 border-r-2 border-foreground/10 bg-content1" style={{ width: LABEL_W }} />
+            <div ref={timelineRef} className="flex-1 overflow-x-auto overflow-y-hidden relative bg-content2/50" onClick={handleTimelineClick}>
+              <div className="relative" style={{ width: timelineWidth + TIMELINE_PAD * 2, height: 28 }}>
+                {rulerTicks.map(({ time, x }) => (
+                  <div key={time} className="absolute top-0 flex flex-col items-center" style={{ left: x }}>
+                    <span className="text-[10px] text-foreground/40 font-mono select-none whitespace-nowrap" style={{ transform: 'translateX(-50%)' }}>
+                      {time < 60 ? `${Math.round(time)}초` : `${Math.floor(time / 60)}:${String(Math.round(time % 60)).padStart(2, '0')}`}
+                    </span>
+                    <div className="w-px h-2 bg-foreground/20" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="shrink-0 border-l-2 border-foreground/10 bg-content1" style={{ width: TOGGLE_W }} />
+          </div>
+
+          {/* Track rows */}
+          {tracks.map((track) => (
+            <div key={track.id} className="flex shrink-0 border-b-2 border-foreground/10" style={{ height: TRACK_HEIGHT }}>
+              {/* Label */}
+              <div className="shrink-0 flex items-center gap-2 px-2 border-r-2 border-foreground/10 bg-content1" style={{ width: LABEL_W }}>
+                <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ backgroundColor: track.color + '30' }}>
+                  {track.type === 'video'
+                    ? <FilmIcon className="w-3 h-3" style={{ color: track.color }} />
+                    : track.type === 'vocals'
+                    ? <Mic className="w-3 h-3" style={{ color: track.color }} />
+                    : <Music className="w-3 h-3" style={{ color: track.color }} />
+                  }
+                </div>
+                <span className="text-xs font-bold truncate">{track.name}</span>
+              </div>
+
+              {/* Content: Thumbnails for video, Waveform for audio */}
+              <div
+                className="flex-1 overflow-x-auto overflow-y-hidden relative cursor-pointer"
+                style={{ backgroundColor: track.color + '10', opacity: track.active ? 1 : 0.35 }}
+                onClick={handleTimelineClick}
+                onScroll={(e) => {
+                  if (timelineRef.current) timelineRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }}
+              >
+                <div className="relative h-full" style={{ width: timelineWidth + TIMELINE_PAD * 2 }}>
+                  <div className="absolute top-0 h-full" style={{ left: TIMELINE_PAD, width: timelineWidth }}>
+                    {track.type === 'video' && track.thumbnails
+                      ? <ThumbnailStrip thumbnails={track.thumbnails} />
+                      : <WaveformCanvas blob={track.blob} color={track.color} />
+                    }
+                  </div>
+                  {/* Playhead */}
+                  <div
+                    className="absolute top-0 h-full pointer-events-none"
+                    style={{ left: playheadX, width: 2, backgroundColor: '#f43f5e', zIndex: 10 }}
+                  />
+                </div>
+              </div>
+
+              {/* Toggle + Download */}
+              <div className="shrink-0 flex flex-col items-center justify-center gap-1 border-l-2 border-foreground/10 bg-content1" style={{ width: TOGGLE_W }}>
+                <button onClick={() => toggleTrack(track.id)} className="p-0.5 rounded hover:bg-content3 transition-colors" title={track.active ? '숨기기' : '보이기'}>
+                  {track.active ? <Eye className="w-3.5 h-3.5 text-foreground/50" /> : <EyeOff className="w-3.5 h-3.5 text-foreground/30" />}
+                </button>
+                {track.type !== 'video' && (
+                  <button onClick={() => handleDownload(track)} className="p-0.5 rounded hover:bg-content3 transition-colors" title="다운로드">
+                    <Download className="w-3.5 h-3.5 text-foreground/50" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Transport Bar */}
+      <div className="shrink-0 flex items-center gap-3 px-3 py-2 bg-content1 border-t-2 border-foreground/10">
+        <button
+          onClick={togglePlay}
+          className="w-9 h-9 rounded-lg flex items-center justify-center border-3 border-foreground shadow-neo-sm hover:shadow-neo-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+          style={{ backgroundColor: '#4ade80' }}
+        >
+          {isPlaying ? <Pause className="w-4 h-4 text-foreground" /> : <Play className="w-4 h-4 text-foreground ml-0.5" />}
+        </button>
+
+        <div className="text-xs font-mono text-foreground/70 whitespace-nowrap bg-content2 px-2 py-1 rounded-md border border-foreground/15 select-none">
+          {fmtTime(currentTime)} / {fmtTime(duration)}
+        </div>
+
+        <div className="flex-1 relative h-6 flex items-center cursor-pointer group" onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          seekTo(((e.clientX - rect.left) / rect.width) * duration);
+        }}>
+          <div className="w-full h-1.5 bg-content3 rounded-full overflow-hidden group-hover:h-2 transition-all">
+            <div className="h-full rounded-full" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%`, backgroundColor: '#4ade80' }} />
+          </div>
+        </div>
+
+        <button onClick={() => setVolume(v => v > 0 ? 0 : 1)} className="p-1 rounded hover:bg-content3 transition-colors" title="볼륨">
+          {volume > 0 ? <Volume2 className="w-4 h-4 text-foreground/60" /> : <VolumeX className="w-4 h-4 text-foreground/40" />}
+        </button>
+        <input
+          type="range" min={0} max={1} step={0.01} value={volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+          className="w-16 h-1 accent-[#4ade80] cursor-pointer"
+        />
+
+        <span className="text-[10px] font-mono text-foreground/30 whitespace-nowrap select-none">{Math.round(zoom * 100)}%</span>
+
+        <button onClick={reset} className="p-1.5 rounded-lg hover:bg-content3 transition-colors border border-foreground/15" title="새 파일">
+          <RefreshCw className="w-3.5 h-3.5 text-foreground/50" />
+        </button>
+      </div>
+    </div>
+  );
 };
 
 // --- Frame Extractor Component ---
@@ -3825,6 +4563,32 @@ const App = () => {
               <span className="flex-1 text-left">워터마크제거</span>
             </button>
 
+            {/* 음원분리기 */}
+            <button
+              onClick={() => setCurrentStage('audio-separator')}
+              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                currentStage === 'audio-separator'
+                  ? 'neo-btn neo-btn-warning border-3 border-foreground shadow-neo-sm'
+                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
+              }`}
+            >
+              {currentStage === 'audio-separator' && <div className="w-1.5 h-4 rounded-full bg-warning" />}
+              <Music className="w-4 h-4 text-warning" />
+              <span className="flex-1 text-left">음원분리기</span>
+            </button>
+
+            {/* Grok 바로가기 */}
+            <a
+              href="https://grok.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all neo-btn border-3 border-foreground/30 hover:border-foreground/60"
+              title="새 탭에서 Grok 열기"
+            >
+              <ExternalLink className="w-4 h-4 text-primary" />
+              <span className="flex-1 text-left text-foreground/70">Grok 바로가기</span>
+            </a>
+
             {/* Google 번역기 */}
             <a
               href="https://translate.google.co.kr/"
@@ -3987,11 +4751,62 @@ const App = () => {
             </div>
           )}
 
+          {/* Audio Separator Sidebar Content */}
+          {currentStage === 'audio-separator' && (
+            <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Music className="w-5 h-5 text-warning" />
+                  <h3 className="text-sm font-black text-foreground uppercase">사용 방법</h3>
+                </div>
+                <div className="space-y-2 text-xs text-foreground/70">
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">1</span>
+                    <span>오디오 파일을 드래그하거나 선택하여 업로드</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">2</span>
+                    <span>AI가 자동으로 보컬과 반주를 분리합니다</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="memphis-badge-warning text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">3</span>
+                    <span>각 트랙을 미리듣기하고 WAV로 다운로드</span>
+                  </div>
+                </div>
+              </div>
+              <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-2">
+                <h4 className="text-xs font-bold text-foreground/80 uppercase">특징</h4>
+                <ul className="space-y-1 text-xs text-foreground/60">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    UVR-MDX-NET AI 모델 기반
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    MP3, WAV, FLAC, OGG, M4A 지원
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    보컬/반주(MR) 분리
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-primary" />
+                    100% 브라우저 내 처리 (서버 불필요)
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+
         </aside>
 
         {/* RIGHT PANEL: Editor & Output */}
         <main className="flex-1 flex flex-col min-w-0 relative">
-          {currentStage === 'wm-remover' ? (
+          {currentStage === 'audio-separator' ? (
+          /* Audio Separator */
+          <AudioSeparatorContent />
+          ) : currentStage === 'wm-remover' ? (
           /* Watermark Remover */
           <WatermarkRemoverContent />
           ) : currentStage === 'bg-remover' ? (
