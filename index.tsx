@@ -827,10 +827,13 @@ const AudioSeparatorContent = () => {
       // Master clock: video if video mode, else first audio
       const masterTime = video && !video.paused ? video.currentTime : audioEls[0]?.currentTime;
       if (masterTime === undefined) { rafRef.current = 0; return; }
-      if (video && video.paused && (!audioEls[0] || audioEls[0].paused)) { rafRef.current = 0; return; }
+      // Stop if all sources are paused/ended
+      const videoPaused = !video || video.paused;
+      const allAudioPaused = audioEls.every(el => el.paused || el.ended);
+      if (videoPaused && allAudioPaused) { rafRef.current = 0; return; }
       setCurrentTime(masterTime);
       for (const el of audioEls) {
-        if (Math.abs(el.currentTime - masterTime) > 0.05) el.currentTime = masterTime;
+        if (!el.paused && Math.abs(el.currentTime - masterTime) > 0.05) el.currentTime = masterTime;
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -874,15 +877,18 @@ const AudioSeparatorContent = () => {
   // Handle ended
   React.useEffect(() => {
     const handler = () => {
-      setIsPlaying(false); stopSync(); setCurrentTime(0);
-      if (videoRef.current) videoRef.current.currentTime = 0;
-      audioRefs.current.forEach(el => { el.currentTime = 0; });
+      stopSync();
+      if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0; }
+      audioRefs.current.forEach(el => { el.pause(); el.currentTime = 0; });
+      setIsPlaying(false);
+      setCurrentTime(0);
     };
-    const video = videoRef.current;
-    const audioEl = ([...audioRefs.current.values()] as HTMLAudioElement[])[0];
-    const master = video || audioEl;
-    master?.addEventListener('ended', handler);
-    return () => { master?.removeEventListener('ended', handler); };
+    // Listen on all audio elements + video so any ending triggers stop
+    const targets: HTMLMediaElement[] = [];
+    if (videoRef.current) targets.push(videoRef.current);
+    audioRefs.current.forEach(el => targets.push(el));
+    targets.forEach(el => el.addEventListener('ended', handler));
+    return () => { targets.forEach(el => el.removeEventListener('ended', handler)); };
   }, [tracks, stopSync]);
 
   // Video muted (audio comes from audio elements)
