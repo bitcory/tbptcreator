@@ -127,7 +127,7 @@ async function loadModel(): Promise<void> {
 
   progress('download', 0, 'WASM 런타임 준비 중...')
   try {
-    const wasmUrl = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/ort-wasm-simd-threaded.jsep.wasm'
+    const wasmUrl = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort-wasm-simd-threaded.jsep.wasm'
     const wasmResponse = await fetch(wasmUrl, { mode: 'cors' })
     if (!wasmResponse.ok) throw new Error(`HTTP ${wasmResponse.status}`)
     ort.env.wasm.wasmBinary = await wasmResponse.arrayBuffer()
