@@ -1328,16 +1328,11 @@ const AudioSeparatorContent = () => {
                 </div>
               </div>
 
-              {/* Toggle + Download */}
+              {/* Toggle */}
               <div className="shrink-0 flex flex-col items-center justify-center gap-1 border-l-2 border-foreground/10 bg-content1" style={{ width: TOGGLE_W }}>
                 <button onClick={() => toggleTrack(track.id)} className="p-0.5 rounded hover:bg-content3 transition-colors" title={track.active ? '숨기기' : '보이기'}>
                   {track.active ? <Eye className="w-3.5 h-3.5 text-foreground/50" /> : <EyeOff className="w-3.5 h-3.5 text-foreground/30" />}
                 </button>
-                {track.type !== 'video' && (
-                  <button onClick={() => handleDownload(track)} className="p-0.5 rounded hover:bg-content3 transition-colors" title="다운로드">
-                    <Download className="w-3.5 h-3.5 text-foreground/50" />
-                  </button>
-                )}
               </div>
             </div>
           ))}
@@ -1382,6 +1377,27 @@ const AudioSeparatorContent = () => {
           <RefreshCw className="w-3.5 h-3.5 text-foreground/50" />
         </button>
       </div>
+
+      {/* Download Bar */}
+      {(() => {
+        const downloadable = audioTracks.filter(t => t.active);
+        if (!downloadable.length) return null;
+        return (
+          <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-content2/50 border-t-2 border-foreground/10">
+            {downloadable.map(t => (
+              <button
+                key={t.id}
+                onClick={() => handleDownload(t)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-foreground/30 hover:border-foreground/60 bg-content1 hover:bg-content3 transition-all"
+              >
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+                <span>{t.name}</span>
+                <Download className="w-3.5 h-3.5 text-foreground/50" />
+              </button>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 };
