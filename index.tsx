@@ -136,8 +136,50 @@ interface ScenePrompt {
   ko_description: string;
 }
 
+interface ConceptArtMasterImage {
+  type: string;
+  label: string;
+  image_prompt: string;
+  image_ko_description: string;
+  uploaded_image?: string;
+}
+
+interface ConceptArtCharacter {
+  id: string;
+  name: string;
+  role: string;
+  card: Record<string, string>;
+  master_images: ConceptArtMasterImage[];
+}
+
+interface ConceptArtEnvironment {
+  id: string;
+  name: string;
+  card: Record<string, string>;
+  allowed_effects: string[];
+  blocked_effects: string[];
+  master_images: ConceptArtMasterImage[];
+  uploaded_image?: string;
+}
+
+interface ConceptArtProduct {
+  id: string;
+  name: string;
+  card: Record<string, string>;
+  master_images: ConceptArtMasterImage[];
+}
+
+interface ConceptArtData {
+  characters: ConceptArtCharacter[];
+  environments: ConceptArtEnvironment[];
+  products: ConceptArtProduct[];
+  group_shots: ConceptArtMasterImage[];
+}
+
+type ConceptArtTab = 'characters' | 'environments' | 'products';
+
 type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
-type Stage2SubPage = 'image' | 'video';
+type Stage2SubPage = 'concept' | 'image' | 'video';
 
 interface ExtractedFrame {
   id: number;
@@ -642,6 +684,356 @@ const Stage2Content = ({
     </div>
   );
 };
+
+
+// --- ConceptArt Content Component ---
+
+const ConceptArtContent = ({
+  conceptArtData,
+  setConceptArtData,
+  onUpload,
+}: {
+  conceptArtData: ConceptArtData;
+  setConceptArtData: React.Dispatch<React.SetStateAction<ConceptArtData>>;
+  onUpload: () => void;
+}) => {
+  const [activeTab, setActiveTab] = useState<ConceptArtTab>('characters');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    });
+  };
+
+  const handleFileUpload = (callback: (dataUrl: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => callback(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const updateCharImage = (charIdx: number, imgIdx: number, dataUrl: string | undefined) => {
+    setConceptArtData(prev => ({
+      ...prev,
+      characters: prev.characters.map((c, ci) => ci !== charIdx ? c : {
+        ...c,
+        master_images: c.master_images.map((m, mi) => mi !== imgIdx ? m : { ...m, uploaded_image: dataUrl })
+      })
+    }));
+  };
+
+  const updateProductImage = (prodIdx: number, imgIdx: number, dataUrl: string | undefined) => {
+    setConceptArtData(prev => ({
+      ...prev,
+      products: prev.products.map((p, pi) => pi !== prodIdx ? p : {
+        ...p,
+        master_images: p.master_images.map((m, mi) => mi !== imgIdx ? m : { ...m, uploaded_image: dataUrl })
+      })
+    }));
+  };
+
+  const updateGroupShotImage = (gsIdx: number, dataUrl: string | undefined) => {
+    setConceptArtData(prev => ({
+      ...prev,
+      group_shots: prev.group_shots.map((g, gi) => gi !== gsIdx ? g : { ...g, uploaded_image: dataUrl })
+    }));
+  };
+
+  const updateEnvImage = (envIdx: number, dataUrl: string | undefined) => {
+    setConceptArtData(prev => ({
+      ...prev,
+      environments: prev.environments.map((e, ei) => ei !== envIdx ? e : { ...e, uploaded_image: dataUrl })
+    }));
+  };
+
+  const updateEnvMasterImage = (envIdx: number, imgIdx: number, dataUrl: string | undefined) => {
+    setConceptArtData(prev => ({
+      ...prev,
+      environments: prev.environments.map((e, ei) => ei !== envIdx ? e : {
+        ...e,
+        master_images: e.master_images.map((m, mi) => mi !== imgIdx ? m : { ...m, uploaded_image: dataUrl })
+      })
+    }));
+  };
+
+  const hasData = conceptArtData.characters.length > 0 || conceptArtData.environments.length > 0 || conceptArtData.products.length > 0;
+
+  if (!hasData) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+            <Palette className="w-10 h-10 text-foreground/50" />
+          </div>
+          <p className="text-lg font-bold text-foreground/70 mb-2">컨셉아트 데이터가 없습니다</p>
+          <p className="text-sm text-foreground/50 mb-5">전체 스토리보드 JSON을 업로드하여<br/>캐릭터/환경/제품 정보를 확인하세요.</p>
+          <button onClick={onUpload} className="neo-btn neo-btn-primary px-5 py-2.5 rounded-lg flex items-center gap-2 mx-auto text-sm font-medium">
+            <Upload className="w-4 h-4" />
+            스토리보드 JSON 업로드
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const tabs: { key: ConceptArtTab; label: string; count: number; bgActive: string }[] = [
+    { key: 'characters', label: '캐릭터', count: conceptArtData.characters.length + conceptArtData.group_shots.length, bgActive: 'bg-content3' },
+    { key: 'environments', label: '환경', count: conceptArtData.environments.length, bgActive: 'bg-content4' },
+    { key: 'products', label: '제품', count: conceptArtData.products.length, bgActive: 'bg-content2' },
+  ];
+
+  const ImageRow = ({ koText, enText, copyKey, image, onImageUpload, onImageRemove }: {
+    koText: string; enText: string; copyKey: string; image?: string;
+    onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onImageRemove: () => void;
+  }) => (
+    <div className="flex flex-col lg:flex-row">
+      <div className="w-full lg:w-1/3 p-3 lg:border-r-2 border-b-2 lg:border-b-0 border-foreground/10">
+        <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
+        <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{koText}</p>
+      </div>
+      <div className="w-full lg:w-1/3 p-3 lg:border-r-2 border-b-2 lg:border-b-0 border-foreground/10 bg-content2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] uppercase tracking-wider text-foreground/40 font-medium">English Prompt</div>
+          <button onClick={() => copyText(enText, copyKey)} className="neo-btn px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
+            {copiedKey === copyKey ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+            {copiedKey === copyKey ? '복사됨' : '복사'}
+          </button>
+        </div>
+        <p className="text-xs text-foreground/80 leading-relaxed font-mono whitespace-pre-wrap">{enText}</p>
+      </div>
+      <div className="w-full lg:w-1/3 p-3">
+        <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">생성 이미지</div>
+        {image ? (
+          <div className="relative group">
+            <img src={image} alt="concept" className="w-full rounded-lg border-2 border-foreground/20 object-cover" />
+            <button onClick={onImageRemove} className="absolute top-1 right-1 neo-btn neo-btn-danger p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex flex-col items-center justify-center w-full h-32 border-3 border-dashed border-foreground/30 rounded-lg cursor-pointer hover:border-foreground/50 hover:bg-foreground/5 transition-all">
+            <ImagePlus className="w-8 h-8 text-foreground/30 mb-1" />
+            <span className="text-[10px] text-foreground/40">클릭하여 업로드</span>
+            <input type="file" accept="image/*" className="hidden" onChange={onImageUpload} />
+          </label>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 p-3 md:p-6 gap-4">
+      {/* Header */}
+      <div className="shrink-0 neo-card-static rounded-xl p-3 md:p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Palette className="w-5 h-5 text-primary" />
+          <h3 className="text-base md:text-lg font-black text-foreground uppercase">컨셉아트</h3>
+        </div>
+        <div className="flex gap-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all ${
+                activeTab === tab.key
+                  ? `${tab.bgActive} border-3 border-foreground shadow-neo-sm`
+                  : 'border-3 border-foreground/20 hover:border-foreground/40 text-foreground/60'
+              }`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="memphis-badge text-[10px] px-1.5 py-0.5 rounded-full font-bold">{tab.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 overflow-y-auto space-y-4">
+        {/* Characters Tab */}
+        {activeTab === 'characters' && (
+          <>
+            {conceptArtData.characters.map((char, charIdx) => (
+              <div key={char.id} className="neo-card-static rounded-xl overflow-hidden animate-card-enter">
+                <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground bg-content3 flex items-center gap-2">
+                  <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">{char.id}</span>
+                  <span className="text-sm md:text-base font-bold text-foreground">{char.name}</span>
+                  <span className="text-xs text-foreground/50">({char.role})</span>
+                </div>
+                <div className="px-3 md:px-4 py-2 border-b-2 border-foreground/10 bg-content2/50">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/60">
+                    {Object.entries(char.card).map(([k, v]) => (
+                      <span key={k}><span className="font-bold text-foreground/70">{k}:</span> {v}</span>
+                    ))}
+                  </div>
+                </div>
+                {char.master_images.map((img, imgIdx) => (
+                  <div key={img.type} className="border-b-2 border-foreground/10 last:border-b-0">
+                    <div className="px-3 md:px-4 py-1.5 bg-foreground/5 text-[11px] font-bold text-foreground/50 uppercase tracking-wide">
+                      {img.label}
+                    </div>
+                    <ImageRow
+                      koText={img.image_ko_description}
+                      enText={img.image_prompt}
+                      copyKey={`${char.id}-${img.type}`}
+                      image={img.uploaded_image}
+                      onImageUpload={handleFileUpload((url) => updateCharImage(charIdx, imgIdx, url))}
+                      onImageRemove={() => updateCharImage(charIdx, imgIdx, undefined)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+            {conceptArtData.group_shots.length > 0 && (
+              <div className="neo-card-static rounded-xl overflow-hidden animate-card-enter">
+                <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground bg-content4 flex items-center gap-2">
+                  <span className="text-sm md:text-base font-bold text-foreground">그룹샷</span>
+                  <span className="memphis-badge text-[10px] px-1.5 py-0.5 rounded-full font-bold">{conceptArtData.group_shots.length}</span>
+                </div>
+                {conceptArtData.group_shots.map((gs, gsIdx) => (
+                  <div key={gsIdx} className="border-b-2 border-foreground/10 last:border-b-0">
+                    <div className="px-3 md:px-4 py-1.5 bg-foreground/5 text-[11px] font-bold text-foreground/50 uppercase tracking-wide">
+                      {gs.label}
+                    </div>
+                    <ImageRow
+                      koText={gs.image_ko_description}
+                      enText={gs.image_prompt}
+                      copyKey={`group-${gsIdx}`}
+                      image={gs.uploaded_image}
+                      onImageUpload={handleFileUpload((url) => updateGroupShotImage(gsIdx, url))}
+                      onImageRemove={() => updateGroupShotImage(gsIdx, undefined)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            {conceptArtData.characters.length === 0 && conceptArtData.group_shots.length === 0 && (
+              <div className="text-center py-12 text-foreground/40 text-sm">등록된 캐릭터가 없습니다.</div>
+            )}
+          </>
+        )}
+
+        {/* Environments Tab */}
+        {activeTab === 'environments' && (
+          <>
+            {conceptArtData.environments.map((env, envIdx) => (
+              <div key={env.id} className="neo-card-static rounded-xl overflow-hidden animate-card-enter">
+                <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground bg-content4 flex items-center gap-2">
+                  <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">{env.id}</span>
+                  <span className="text-sm md:text-base font-bold text-foreground">{env.name}</span>
+                </div>
+                {/* Card Summary */}
+                <div className="px-3 md:px-4 py-2 border-b-2 border-foreground/10 bg-content2/50">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/60">
+                    {Object.entries(env.card).map(([k, v]) => (
+                      <span key={k}><span className="font-bold text-foreground/70">{k}:</span> {v}</span>
+                    ))}
+                  </div>
+                </div>
+                {/* Effects */}
+                {(env.allowed_effects.length > 0 || env.blocked_effects.length > 0) && (
+                  <div className="px-3 md:px-4 py-2 border-b-2 border-foreground/10 flex flex-wrap gap-2 items-center">
+                    {env.allowed_effects.map((eff, i) => (
+                      <span key={`a-${i}`} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">{eff}</span>
+                    ))}
+                    {env.blocked_effects.map((eff, i) => (
+                      <span key={`b-${i}`} className="text-[10px] px-2 py-0.5 rounded-full bg-danger/10 border border-danger/30 text-foreground/70 line-through">{eff}</span>
+                    ))}
+                  </div>
+                )}
+                {/* Master Images */}
+                {env.master_images.length > 0 ? (
+                  env.master_images.map((img, imgIdx) => (
+                    <div key={img.type} className="border-b-2 border-foreground/10 last:border-b-0">
+                      <div className="px-3 md:px-4 py-1.5 bg-foreground/5 text-[11px] font-bold text-foreground/50 uppercase tracking-wide">
+                        {img.label}
+                      </div>
+                      <ImageRow
+                        koText={img.image_ko_description}
+                        enText={img.image_prompt}
+                        copyKey={`${env.id}-${img.type}`}
+                        image={img.uploaded_image}
+                        onImageUpload={handleFileUpload((url) => updateEnvMasterImage(envIdx, imgIdx, url))}
+                        onImageRemove={() => updateEnvMasterImage(envIdx, imgIdx, undefined)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  /* Fallback: single image upload for environments without master_images */
+                  <div className="p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">레퍼런스 이미지</div>
+                    {env.uploaded_image ? (
+                      <div className="relative group">
+                        <img src={env.uploaded_image} alt={env.name} className="w-full rounded-lg border-2 border-foreground/20 object-cover" />
+                        <button onClick={() => updateEnvImage(envIdx, undefined)} className="absolute top-1 right-1 neo-btn neo-btn-danger p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-3 border-dashed border-foreground/30 rounded-lg cursor-pointer hover:border-foreground/50 hover:bg-foreground/5 transition-all">
+                        <ImagePlus className="w-8 h-8 text-foreground/30 mb-1" />
+                        <span className="text-[10px] text-foreground/40">클릭하여 업로드</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload((url) => updateEnvImage(envIdx, url))} />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {conceptArtData.environments.length === 0 && (
+              <div className="text-center py-12 text-foreground/40 text-sm">등록된 환경이 없습니다.</div>
+            )}
+          </>
+        )}
+
+        {/* Products Tab */}
+        {activeTab === 'products' && (
+          <>
+            {conceptArtData.products.map((prod, prodIdx) => (
+              <div key={prod.id} className="neo-card-static rounded-xl overflow-hidden animate-card-enter">
+                <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground bg-content2 flex items-center gap-2">
+                  <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">{prod.id}</span>
+                  <span className="text-sm md:text-base font-bold text-foreground">{prod.name}</span>
+                </div>
+                <div className="px-3 md:px-4 py-2 border-b-2 border-foreground/10 bg-content2/50">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/60">
+                    {Object.entries(prod.card).map(([k, v]) => (
+                      <span key={k}><span className="font-bold text-foreground/70">{k}:</span> {v}</span>
+                    ))}
+                  </div>
+                </div>
+                {prod.master_images.map((img, imgIdx) => (
+                  <div key={img.type} className="border-b-2 border-foreground/10 last:border-b-0">
+                    <div className="px-3 md:px-4 py-1.5 bg-foreground/5 text-[11px] font-bold text-foreground/50 uppercase tracking-wide">
+                      {img.label}
+                    </div>
+                    <ImageRow
+                      koText={img.image_ko_description}
+                      enText={img.image_prompt}
+                      copyKey={`${prod.id}-${img.type}`}
+                      image={img.uploaded_image}
+                      onImageUpload={handleFileUpload((url) => updateProductImage(prodIdx, imgIdx, url))}
+                      onImageRemove={() => updateProductImage(prodIdx, imgIdx, undefined)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+            {conceptArtData.products.length === 0 && (
+              <div className="text-center py-12 text-foreground/40 text-sm">등록된 제품이 없습니다.</div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 // --- Utility Functions ---
 
@@ -4163,7 +4555,106 @@ const App = () => {
         throw new Error(`JSON 파싱 오류: ${parseErr.message}`);
       }
 
-      if (!Array.isArray(json)) throw new Error('JSON 배열 형식이어야 합니다.');
+      // Full storyboard format (object with "scenes" key)
+      if (!Array.isArray(json) && typeof json === 'object' && json !== null && 'scenes' in json) {
+        const sb = json;
+
+        // Parse characters
+        const chars: ConceptArtCharacter[] = [];
+        if (Array.isArray(sb.characters)) {
+          for (const c of sb.characters) {
+            const mi: ConceptArtMasterImage[] = [];
+            if (c.master_images && typeof c.master_images === 'object') {
+              for (const [k, v] of Object.entries(c.master_images as Record<string, any>)) {
+                mi.push({
+                  type: k,
+                  label: k === 'fullbody' ? '풀바디' : k === 'character_sheet' ? '캐릭터 시트' : k,
+                  image_prompt: v?.image_prompt || '',
+                  image_ko_description: v?.image_ko_description || '',
+                });
+              }
+            }
+            chars.push({ id: c.id || '', name: c.name || '', role: c.role || '', card: c.card || {}, master_images: mi });
+          }
+        }
+
+        // Parse environments
+        const envs: ConceptArtEnvironment[] = [];
+        if (Array.isArray(sb.environments)) {
+          for (const e of sb.environments) {
+            const emi: ConceptArtMasterImage[] = [];
+            if (e.master_images && typeof e.master_images === 'object') {
+              for (const [k, v] of Object.entries(e.master_images as Record<string, any>)) {
+                emi.push({
+                  type: k,
+                  label: k === 'wide_establishing' ? '와이드 전경' : k,
+                  image_prompt: v?.image_prompt || '',
+                  image_ko_description: v?.image_ko_description || '',
+                });
+              }
+            }
+            envs.push({
+              id: e.id || '', name: e.name || '', card: e.card || {},
+              allowed_effects: Array.isArray(e.allowed_effects) ? e.allowed_effects : [],
+              blocked_effects: Array.isArray(e.blocked_effects) ? e.blocked_effects : [],
+              master_images: emi,
+            });
+          }
+        }
+
+        // Parse products
+        const prods: ConceptArtProduct[] = [];
+        if (Array.isArray(sb.products)) {
+          for (const p of sb.products) {
+            const mi: ConceptArtMasterImage[] = [];
+            if (p.master_images && typeof p.master_images === 'object') {
+              for (const [k, v] of Object.entries(p.master_images as Record<string, any>)) {
+                mi.push({
+                  type: k,
+                  label: k === 'hero_shot' ? '히어로샷' : k === 'product_turnaround' ? '제품 턴어라운드' : k,
+                  image_prompt: v?.image_prompt || '',
+                  image_ko_description: v?.image_ko_description || '',
+                });
+              }
+            }
+            prods.push({ id: p.id || '', name: p.name || '', card: p.card || {}, master_images: mi });
+          }
+        }
+
+        // Parse group shots
+        const gs: ConceptArtMasterImage[] = [];
+        if (Array.isArray(sb.group_shots)) {
+          for (const g of sb.group_shots) {
+            gs.push({
+              type: 'group_shot', label: g.type || g.id || '그룹샷',
+              image_prompt: g.image_prompt || '', image_ko_description: g.image_ko_description || '',
+            });
+          }
+        }
+
+        setConceptArtData({ characters: chars, environments: envs, products: prods, group_shots: gs });
+
+        // Parse scenes into image/video prompts
+        if (Array.isArray(sb.scenes)) {
+          const imgP: ScenePrompt[] = [];
+          const vidP: ScenePrompt[] = [];
+          for (const s of sb.scenes) {
+            if (typeof s.id !== 'number') continue;
+            if (s.image_prompt) imgP.push({ id: s.id, scene_title: s.scene_title || '', prompt: s.image_prompt, ko_description: s.image_ko_description || '' });
+            if (s.video_prompt) vidP.push({ id: s.id, scene_title: s.scene_title || '', prompt: s.video_prompt, ko_description: s.video_ko_description || '' });
+          }
+          if (imgP.length > 0) setImagePrompts(imgP);
+          if (vidP.length > 0) setVideoPrompts(vidP);
+        }
+
+        setStage2SubPage('concept');
+        setIsStage2UploadOpen(false);
+        setStage2UploadInput('');
+        setIsSidebarOpen(false);
+        return;
+      }
+
+      if (!Array.isArray(json)) throw new Error('JSON 배열 형식이거나 스토리보드 객체 형식이어야 합니다.');
 
       // Detect combined format (has image_prompt and video_prompt fields)
       const isCombinedFormat = json.length > 0 && ('image_prompt' in json[0] || 'video_prompt' in json[0]);
@@ -4241,6 +4732,7 @@ const App = () => {
   const [stage2UploadTarget, setStage2UploadTarget] = useState<Stage2SubPage>('image');
   const [stage2UploadInput, setStage2UploadInput] = useState('');
   const [stage2UploadError, setStage2UploadError] = useState<string | null>(null);
+  const [conceptArtData, setConceptArtData] = useState<ConceptArtData>({ characters: [], environments: [], products: [], group_shots: [] });
 
   // Load Stage2 data from localStorage
   useEffect(() => {
@@ -4251,6 +4743,10 @@ const App = () => {
     try {
       const vid = localStorage.getItem('videoPrompts');
       if (vid) setVideoPrompts(JSON.parse(vid));
+    } catch {}
+    try {
+      const ca = localStorage.getItem('conceptArtData');
+      if (ca) setConceptArtData(JSON.parse(ca));
     } catch {}
   }, []);
 
@@ -4269,6 +4765,24 @@ const App = () => {
       localStorage.removeItem('videoPrompts');
     }
   }, [videoPrompts]);
+
+  useEffect(() => {
+    const hasData = conceptArtData.characters.length > 0 || conceptArtData.environments.length > 0 || conceptArtData.products.length > 0 || conceptArtData.group_shots.length > 0;
+    if (hasData) {
+      try {
+        // Strip uploaded_image fields to avoid localStorage size limit
+        const stripped: ConceptArtData = {
+          characters: conceptArtData.characters.map(c => ({ ...c, master_images: c.master_images.map(m => ({ ...m, uploaded_image: undefined })) })),
+          environments: conceptArtData.environments.map(e => ({ ...e, uploaded_image: undefined, master_images: e.master_images.map(m => ({ ...m, uploaded_image: undefined })) })),
+          products: conceptArtData.products.map(p => ({ ...p, master_images: p.master_images.map(m => ({ ...m, uploaded_image: undefined })) })),
+          group_shots: conceptArtData.group_shots.map(g => ({ ...g, uploaded_image: undefined })),
+        };
+        localStorage.setItem('conceptArtData', JSON.stringify(stripped));
+      } catch {}
+    } else {
+      localStorage.removeItem('conceptArtData');
+    }
+  }, [conceptArtData]);
 
   // Tab accent colors for neobrutalism theme
   const tabColors = [
@@ -4503,6 +5017,23 @@ const App = () => {
               {/* Stage 2 Sidebar Content */}
               {currentStage === 'stage2' && (
                 <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+                  <button
+                    onClick={() => setStage2SubPage('concept')}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                      stage2SubPage === 'concept'
+                        ? 'text-foreground bg-content3 border-3 border-foreground shadow-neo-sm'
+                        : 'text-foreground/60 hover:text-foreground/80 hover:bg-foreground/5 border-3 border-foreground/20'
+                    }`}
+                  >
+                    <Palette className="w-5 h-5 text-primary" />
+                    <span className="flex-1 text-left">컨셉아트</span>
+                    {(conceptArtData.characters.length + conceptArtData.environments.length + conceptArtData.products.length) > 0 && (
+                      <span className="memphis-badge text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        {conceptArtData.characters.length + conceptArtData.environments.length + conceptArtData.products.length}
+                      </span>
+                    )}
+                  </button>
+
                   <button
                     onClick={() => setStage2SubPage('image')}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
@@ -5015,6 +5546,17 @@ const App = () => {
               </div>
             </div>
             </div>
+          ) : stage2SubPage === 'concept' ? (
+          /* Stage 2: Concept Art Viewer */
+          <ConceptArtContent
+            conceptArtData={conceptArtData}
+            setConceptArtData={setConceptArtData}
+            onUpload={() => {
+              setStage2UploadError(null);
+              setStage2UploadInput('');
+              setIsStage2UploadOpen(true);
+            }}
+          />
           ) : (
           /* Stage 2: Image/Video Prompt Viewer */
           <Stage2Content
@@ -5119,7 +5661,9 @@ const App = () => {
               )}
 
               <div className="mb-3 p-2.5 rounded-lg text-xs text-foreground/60 shrink-0 bg-content4 border-2 border-foreground/20 space-y-1">
-                <p className="font-bold text-foreground/80">통합 형식 (이미지+영상 동시):</p>
+                <p className="font-bold text-foreground/80">스토리보드 전체 형식 (컨셉아트+씬 동시):</p>
+                <p>{"{"} "project": {"{"} ... {"}"}, "characters": [...], "environments": [...], "scenes": [...] {"}"}</p>
+                <p className="font-bold text-foreground/80 mt-1">통합 형식 (이미지+영상 동시):</p>
                 <p>[{"{"} "id": 1, "scene_title": "...", "image_prompt": "...", "image_ko_description": "...", "video_prompt": "...", "video_ko_description": "..." {"}"}]</p>
                 <p className="font-bold text-foreground/80 mt-1">개별 형식 ({stage2UploadTarget === 'image' ? '이미지' : '영상'} 전용):</p>
                 <p>[{"{"} "id": 1, "scene_title": "...", "prompt": "...", "ko_description": "..." {"}"}]</p>
