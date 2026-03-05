@@ -686,6 +686,63 @@ const Stage2Content = ({
 };
 
 
+// --- Image Drop Zone Component ---
+
+const ImageDropZone = ({ onImage }: { onImage: (dataUrl: string) => void }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => onImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  return (
+    <label
+      className={`flex flex-col items-center justify-center w-full h-32 border-3 border-dashed rounded-lg cursor-pointer transition-all ${
+        isDragging
+          ? 'border-primary bg-primary/10'
+          : 'border-foreground/30 hover:border-foreground/50 hover:bg-foreground/5'
+      }`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <ImagePlus className={`w-8 h-8 mb-1 ${isDragging ? 'text-primary' : 'text-foreground/30'}`} />
+      <span className={`text-[10px] ${isDragging ? 'text-primary font-bold' : 'text-foreground/40'}`}>
+        {isDragging ? '여기에 놓으세요' : '클릭 또는 드래그하여 업로드'}
+      </span>
+      <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) handleFile(file);
+      }} />
+    </label>
+  );
+};
+
 // --- ConceptArt Content Component ---
 
 const ConceptArtContent = ({
@@ -705,14 +762,6 @@ const ConceptArtContent = ({
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 2000);
     });
-  };
-
-  const handleFileUpload = (callback: (dataUrl: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => callback(ev.target?.result as string);
-    reader.readAsDataURL(file);
   };
 
   const updateCharImage = (charIdx: number, imgIdx: number, dataUrl: string | undefined) => {
@@ -785,9 +834,9 @@ const ConceptArtContent = ({
     { key: 'products', label: '제품', count: conceptArtData.products.length, bgActive: 'bg-content2' },
   ];
 
-  const ImageRow = ({ koText, enText, copyKey, image, onImageUpload, onImageRemove }: {
+  const ImageRow = ({ koText, enText, copyKey, image, onImage, onImageRemove }: {
     koText: string; enText: string; copyKey: string; image?: string;
-    onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onImage: (dataUrl: string) => void;
     onImageRemove: () => void;
   }) => (
     <div className="flex flex-col lg:flex-row">
@@ -815,11 +864,7 @@ const ConceptArtContent = ({
             </button>
           </div>
         ) : (
-          <label className="flex flex-col items-center justify-center w-full h-32 border-3 border-dashed border-foreground/30 rounded-lg cursor-pointer hover:border-foreground/50 hover:bg-foreground/5 transition-all">
-            <ImagePlus className="w-8 h-8 text-foreground/30 mb-1" />
-            <span className="text-[10px] text-foreground/40">클릭하여 업로드</span>
-            <input type="file" accept="image/*" className="hidden" onChange={onImageUpload} />
-          </label>
+          <ImageDropZone onImage={onImage} />
         )}
       </div>
     </div>
@@ -882,7 +927,7 @@ const ConceptArtContent = ({
                       enText={img.image_prompt}
                       copyKey={`${char.id}-${img.type}`}
                       image={img.uploaded_image}
-                      onImageUpload={handleFileUpload((url) => updateCharImage(charIdx, imgIdx, url))}
+                      onImage={(url) => updateCharImage(charIdx, imgIdx, url)}
                       onImageRemove={() => updateCharImage(charIdx, imgIdx, undefined)}
                     />
                   </div>
@@ -905,7 +950,7 @@ const ConceptArtContent = ({
                       enText={gs.image_prompt}
                       copyKey={`group-${gsIdx}`}
                       image={gs.uploaded_image}
-                      onImageUpload={handleFileUpload((url) => updateGroupShotImage(gsIdx, url))}
+                      onImage={(url) => updateGroupShotImage(gsIdx, url)}
                       onImageRemove={() => updateGroupShotImage(gsIdx, undefined)}
                     />
                   </div>
@@ -958,7 +1003,7 @@ const ConceptArtContent = ({
                         enText={img.image_prompt}
                         copyKey={`${env.id}-${img.type}`}
                         image={img.uploaded_image}
-                        onImageUpload={handleFileUpload((url) => updateEnvMasterImage(envIdx, imgIdx, url))}
+                        onImage={(url) => updateEnvMasterImage(envIdx, imgIdx, url)}
                         onImageRemove={() => updateEnvMasterImage(envIdx, imgIdx, undefined)}
                       />
                     </div>
@@ -975,11 +1020,7 @@ const ConceptArtContent = ({
                         </button>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-3 border-dashed border-foreground/30 rounded-lg cursor-pointer hover:border-foreground/50 hover:bg-foreground/5 transition-all">
-                        <ImagePlus className="w-8 h-8 text-foreground/30 mb-1" />
-                        <span className="text-[10px] text-foreground/40">클릭하여 업로드</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload((url) => updateEnvImage(envIdx, url))} />
-                      </label>
+                      <ImageDropZone onImage={(url) => updateEnvImage(envIdx, url)} />
                     )}
                   </div>
                 )}
@@ -1017,7 +1058,7 @@ const ConceptArtContent = ({
                       enText={img.image_prompt}
                       copyKey={`${prod.id}-${img.type}`}
                       image={img.uploaded_image}
-                      onImageUpload={handleFileUpload((url) => updateProductImage(prodIdx, imgIdx, url))}
+                      onImage={(url) => updateProductImage(prodIdx, imgIdx, url)}
                       onImageRemove={() => updateProductImage(prodIdx, imgIdx, undefined)}
                     />
                   </div>
