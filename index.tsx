@@ -6103,7 +6103,7 @@ const App = () => {
             setConceptArtData={setConceptArtData}
             onUpload={() => {
               setStage2UploadError(null);
-              setStage2UploadInput('');
+              setStage2UploadInput(imagePrompts.length === 0 && videoPrompts.length === 0 ? SAMPLE_STORYBOARD : '');
               setIsStage2UploadOpen(true);
             }}
           />
@@ -6118,7 +6118,7 @@ const App = () => {
             onUpload={() => {
               setStage2UploadTarget(stage2SubPage);
               setStage2UploadError(null);
-              setStage2UploadInput('');
+              setStage2UploadInput(imagePrompts.length === 0 && videoPrompts.length === 0 ? SAMPLE_STORYBOARD : '');
               setIsStage2UploadOpen(true);
             }}
           />
