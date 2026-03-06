@@ -129,11 +129,18 @@ interface Template {
   color_palette?: ColorPalette;
 }
 
+interface VideoSubCut {
+  prompt: string;
+  ko_description: string;
+}
+
 interface ScenePrompt {
   id: number;
   scene_title: string;
   prompt: string;
   ko_description: string;
+  video_main?: VideoSubCut;
+  video_extend?: VideoSubCut;
 }
 
 interface ConceptArtMasterImage {
@@ -559,11 +566,26 @@ const Stage2Content = ({
   const setPrompts = subPage === 'image' ? setImagePrompts : setVideoPrompts;
   const label = subPage === 'image' ? '이미지' : '영상';
   const IconComp = subPage === 'image' ? ImageIcon : Film;
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
 
   const updatePrompt = (id: number, newPrompt: string) => {
     setPrompts(prev => prev.map(p => p.id === id ? { ...p, prompt: newPrompt } : p));
+  };
+
+  const updateVideoMainPrompt = (id: number, newPrompt: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? {
+      ...p,
+      prompt: newPrompt,
+      video_main: p.video_main ? { ...p.video_main, prompt: newPrompt } : undefined,
+    } : p));
+  };
+
+  const updateVideoExtendPrompt = (id: number, newPrompt: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? {
+      ...p,
+      video_extend: p.video_extend ? { ...p.video_extend, prompt: newPrompt } : undefined,
+    } : p));
   };
 
   const pasteToPrompt = (id: number) => {
@@ -572,11 +594,11 @@ const Stage2Content = ({
     });
   };
 
-  const copyText = (text: string, id?: number) => {
+  const copyText = (text: string, key?: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      if (id !== undefined) {
-        setCopiedId(id);
-        setTimeout(() => setCopiedId(null), 2000);
+      if (key !== undefined) {
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 2000);
       } else {
         setCopiedAll(true);
         setTimeout(() => setCopiedAll(false), 2000);
@@ -631,55 +653,120 @@ const Stage2Content = ({
 
       {/* Scene Cards */}
       <div className="flex-1 overflow-y-auto space-y-3 md:space-y-4">
-        {prompts.map((scene) => (
-          <div key={scene.id} className="neo-card-static rounded-xl overflow-hidden">
-            {/* Card Header */}
-            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground flex items-center justify-between bg-content4">
-              <div className="flex items-center gap-2.5">
-                <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">
-                  #{scene.id}
-                </span>
-                <span className="text-sm md:text-base font-medium text-foreground">{scene.scene_title}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => pasteToPrompt(scene.id)}
-                  className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
-                >
-                  <ClipboardPaste className="w-3 h-3" />
-                  붙여넣기
-                </button>
-                <button
-                  onClick={() => copyText(scene.prompt, scene.id)}
-                  className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
-                >
-                  {copiedId === scene.id ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
-                  {copiedId === scene.id ? '복사됨' : '복사'}
-                </button>
-              </div>
-            </div>
-
-            {/* Card Body - Split View */}
-            <div className="flex flex-col md:flex-row">
-              {/* Left: Korean Description */}
-              <div className="w-full md:w-1/2 p-3 md:p-4 md:border-r-2 border-b-2 md:border-b-0 border-foreground/20">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
-                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.ko_description}</p>
+        {prompts.map((scene) => {
+          const isVideoSplit = subPage === 'video' && scene.video_main;
+          return (
+            <div key={scene.id} className="neo-card-static rounded-xl overflow-hidden">
+              {/* Card Header */}
+              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground flex items-center justify-between bg-content4">
+                <div className="flex items-center gap-2.5">
+                  <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">
+                    #{scene.id}
+                  </span>
+                  <span className="text-sm md:text-base font-medium text-foreground">{scene.scene_title}</span>
+                </div>
+                {!isVideoSplit && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => pasteToPrompt(scene.id)}
+                      className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+                    >
+                      <ClipboardPaste className="w-3 h-3" />
+                      붙여넣기
+                    </button>
+                    <button
+                      onClick={() => copyText(scene.prompt, String(scene.id))}
+                      className="neo-btn px-2 py-1 flex items-center gap-1.5 rounded-lg text-xs"
+                    >
+                      {copiedKey === String(scene.id) ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                      {copiedKey === String(scene.id) ? '복사됨' : '복사'}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Right: English Prompt */}
-              <div className="w-full md:w-1/2 p-3 md:p-4 bg-content2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
-                <textarea
-                  value={scene.prompt}
-                  onChange={(e) => updatePrompt(scene.id, e.target.value)}
-                  className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
-                  rows={3}
-                />
-              </div>
+              {isVideoSplit ? (
+                /* Video Split View: 메인컷 / 연장컷 — grid로 행 높이 동기화 */
+                <div className="grid grid-cols-1 lg:grid-cols-2">
+                  {/* Row 1: Section headers with copy buttons */}
+                  <div className="order-1 lg:order-none px-3 md:px-4 py-1.5 bg-primary/10 text-[11px] font-bold text-primary uppercase tracking-wide border-b-2 border-foreground/10 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Film className="w-3 h-3" />
+                      메인컷
+                    </div>
+                    <button
+                      onClick={() => copyText(scene.video_main!.prompt, `${scene.id}-main`)}
+                      className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"
+                    >
+                      {copiedKey === `${scene.id}-main` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                      {copiedKey === `${scene.id}-main` ? '복사됨' : '복사'}
+                    </button>
+                  </div>
+                  <div className="order-4 lg:order-none px-3 md:px-4 py-1.5 bg-secondary/10 text-[11px] font-bold text-secondary uppercase tracking-wide border-b-2 border-foreground/10 flex items-center justify-between lg:border-l-3 border-foreground/15 border-t-3 lg:border-t-0">
+                    <div className="flex items-center gap-1.5">
+                      <Film className="w-3 h-3" />
+                      연장컷
+                    </div>
+                    <button
+                      onClick={() => copyText(scene.video_extend?.prompt || '', `${scene.id}-ext`)}
+                      className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"
+                    >
+                      {copiedKey === `${scene.id}-ext` ? <Check className="w-3 h-3 text-secondary" /> : <Copy className="w-3 h-3" />}
+                      {copiedKey === `${scene.id}-ext` ? '복사됨' : '복사'}
+                    </button>
+                  </div>
+
+                  {/* Row 2: Korean descriptions — 같은 행이므로 높이 자동 동기화 */}
+                  <div className="order-2 lg:order-none p-3 md:p-4 border-b-2 border-foreground/10">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.video_main!.ko_description}</p>
+                  </div>
+                  <div className="order-5 lg:order-none p-3 md:p-4 border-b-2 border-foreground/10 lg:border-l-3 border-foreground/15">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.video_extend?.ko_description || ''}</p>
+                  </div>
+
+                  {/* Row 3: English prompts */}
+                  <div className="order-3 lg:order-none p-3 md:p-4 bg-content2">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
+                    <textarea
+                      value={scene.video_main!.prompt}
+                      onChange={(e) => updateVideoMainPrompt(scene.id, e.target.value)}
+                      className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="order-6 lg:order-none p-3 md:p-4 bg-content2 lg:border-l-3 border-foreground/15">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
+                    <textarea
+                      value={scene.video_extend?.prompt || ''}
+                      onChange={(e) => updateVideoExtendPrompt(scene.id, e.target.value)}
+                      className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Default View: Korean / English split */
+                <div className="flex flex-col md:flex-row">
+                  <div className="w-full md:w-1/2 p-3 md:p-4 md:border-r-2 border-b-2 md:border-b-0 border-foreground/20">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.ko_description}</p>
+                  </div>
+                  <div className="w-full md:w-1/2 p-3 md:p-4 bg-content2">
+                    <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
+                    <textarea
+                      value={scene.prompt}
+                      onChange={(e) => updatePrompt(scene.id, e.target.value)}
+                      className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -4682,7 +4769,16 @@ const App = () => {
           for (const s of sb.scenes) {
             if (typeof s.id !== 'number') continue;
             if (s.image_prompt) imgP.push({ id: s.id, scene_title: s.scene_title || '', prompt: s.image_prompt, ko_description: s.image_ko_description || '' });
-            if (s.video_prompt) vidP.push({ id: s.id, scene_title: s.scene_title || '', prompt: s.video_prompt, ko_description: s.video_ko_description || '' });
+            if (s.video_main || s.video_extend || s.video_prompt) {
+              vidP.push({
+                id: s.id,
+                scene_title: s.scene_title || '',
+                prompt: s.video_main?.video_prompt || s.video_prompt || '',
+                ko_description: s.video_main?.video_ko_description || s.video_ko_description || '',
+                video_main: s.video_main ? { prompt: s.video_main.video_prompt || '', ko_description: s.video_main.video_ko_description || '' } : undefined,
+                video_extend: s.video_extend ? { prompt: s.video_extend.video_prompt || '', ko_description: s.video_extend.video_ko_description || '' } : undefined,
+              });
+            }
           }
           if (imgP.length > 0) setImagePrompts(imgP);
           if (vidP.length > 0) setVideoPrompts(vidP);
