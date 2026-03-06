@@ -84,13 +84,13 @@ interface ColorPalette {
 
 interface Attribute {
   attr_id: string;
-  label: string;
+  label?: string;
   label_ko?: string;
-  type: string;
+  type?: string;
   value: any;
   value_ko?: string;
   options?: string[] | { value: string; label: string; label_ko?: string }[];
-  is_active: boolean;
+  is_active?: boolean;
   is_locked?: boolean;
   prefix?: string;
   weight?: { enabled: boolean; value: number };
@@ -101,19 +101,19 @@ interface Attribute {
 
 interface Component {
   component_id: string;
-  component_label: string;
+  component_label?: string;
   component_label_ko?: string;
-  is_active: boolean;
+  is_active?: boolean;
   is_collapsed?: boolean;
   attributes: Attribute[];
 }
 
 interface Section {
   section_id: string;
-  section_label: string;
+  section_label?: string;
   section_label_ko?: string;
   order?: number;
-  is_active: boolean;
+  is_active?: boolean;
   is_collapsed?: boolean;
   is_midjourney_params?: boolean;
   components: Component[];
@@ -129,7 +129,7 @@ interface Template {
   color_palette?: ColorPalette;
 }
 
-interface VideoSubCut {
+interface SubCutPrompt {
   prompt: string;
   ko_description: string;
 }
@@ -139,8 +139,10 @@ interface ScenePrompt {
   scene_title: string;
   prompt: string;
   ko_description: string;
-  video_main?: VideoSubCut;
-  video_extend?: VideoSubCut;
+  video_main?: SubCutPrompt;
+  video_extend?: SubCutPrompt;
+  image_main?: SubCutPrompt;
+  image_extend?: SubCutPrompt;
 }
 
 interface ConceptArtMasterImage {
@@ -195,76 +197,67 @@ interface ExtractedFrame {
   filename: string;
 }
 
-// --- Sample Data from User (Pixar Skeleton) ---
+// --- Sample Data (3D Stylized Girl & Dog) ---
 const SAMPLE_TEMPLATE: Template = {
   "meta_data": {
-    "template_name": "Cute Pixar Skeleton Hiker",
-    "template_id": "tpl_pixar_skeleton_01",
-    "version": "1.0.1",
-    "category": "character",
-    "tags": [
-      "skeleton",
-      "pixar",
-      "cute",
-      "hiking",
-      "3d",
-      "animation"
-    ]
+    "template_name": "TB_V5_0_Lite",
+    "template_id": "tpl_tb_v5_0_lite",
+    "version": "2.0.0"
   },
   "prompt_sections": [
     {
       "section_id": "sec_subject",
-      "section_label": "Main Subject",
       "section_label_ko": "주요 피사체",
       "is_active": true,
       "components": [
         {
           "component_id": "comp_character",
-          "component_label": "Character",
-          "component_label_ko": "캐릭터",
           "is_active": true,
           "attributes": [
             {
-              "attr_id": "char_desc",
-              "label": "Character Description",
-              "label_ko": "캐릭터 묘사",
-              "type": "textarea",
-              "value": "cute anthropomorphic skeleton character, big expressive round eye sockets, friendly smile, smooth white bone texture, chibi proportions, adorable face",
-              "value_ko": "귀여운 의인화된 해골 캐릭터, 크고 표현력 있는 둥근 눈구멍, 친근한 미소, 매끄러운 흰색 뼈 질감, 꼬마 비율, 사랑스러운 얼굴",
+              "attr_id": "character",
+              "label_ko": "캐릭터",
+              "value": "a cute stylized 3D girl with long black hair, bangs, and big brown eyes",
+              "value_ko": "긴 검은 머리와 앞머리, 큰 갈색 눈을 가진 귀여운 3D 스타일 소녀",
+              "is_locked": true,
+              "is_active": true
+            },
+            {
+              "attr_id": "outfit",
+              "label_ko": "복장",
+              "value": "black and white varsity jacket, black pleated skirt, striped socks, tan work boots",
+              "value_ko": "검은색과 흰색 바시티 자켓, 검은색 주름 스커트, 줄무늬 양말, 황갈색 작업 부츠",
+              "is_locked": true,
+              "is_active": true
+            },
+            {
+              "attr_id": "props",
+              "label_ko": "소품",
+              "value": "hands in jacket pockets",
+              "value_ko": "자켓 주머니에 넣은 손",
+              "is_locked": true,
               "is_active": true
             }
           ]
         },
         {
-          "component_id": "comp_outfit",
-          "component_label": "Outfit",
-          "component_label_ko": "복장",
+          "component_id": "comp_creature",
           "is_active": true,
           "attributes": [
             {
-              "attr_id": "outfit_main",
-              "label": "Hiking Gear",
-              "label_ko": "등산 장비",
-              "type": "textarea",
-              "value": "colorful small hiking backpack, sturdy brown hiking boots, red bandana around neck, casual outdoor vest",
-              "value_ko": "알록달록한 작은 등산 배낭, 튼튼한 갈색 등산화, 목에 두른 빨간 반다나, 캐주얼한 아웃도어 조끼",
+              "attr_id": "species",
+              "label_ko": "종류",
+              "value": "tiny fluffy white dog",
+              "value_ko": "작고 솜털이 보송보송한 하얀 강아지",
+              "is_locked": true,
               "is_active": true
-            }
-          ]
-        },
-        {
-          "component_id": "comp_props",
-          "component_label": "Props",
-          "component_label_ko": "소품",
-          "is_active": true,
-          "attributes": [
+            },
             {
-              "attr_id": "prop_hand",
-              "label": "Hand Props",
-              "label_ko": "손 소품",
-              "type": "text",
-              "value": "wooden walking stick",
-              "value_ko": "나무 지팡이",
+              "attr_id": "body",
+              "label_ko": "체형/신체",
+              "value": "round, cloud-like fur texture",
+              "value_ko": "둥글고 구름 같은 털 질감",
+              "is_locked": true,
               "is_active": true
             }
           ]
@@ -273,40 +266,25 @@ const SAMPLE_TEMPLATE: Template = {
     },
     {
       "section_id": "sec_environment",
-      "section_label": "Environment",
       "section_label_ko": "환경",
       "is_active": true,
       "components": [
         {
-          "component_id": "comp_background",
-          "component_label": "Background",
-          "component_label_ko": "배경",
+          "component_id": "comp_env",
           "is_active": true,
           "attributes": [
             {
-              "attr_id": "bg_loc",
-              "label": "Location",
-              "label_ko": "장소",
-              "type": "textarea",
-              "value": "sunny mountain trail, lush green pine trees, rocky path, bright blue sky with fluffy white clouds, nature scenery",
-              "value_ko": "화창한 산길, 울창한 푸른 소나무, 바위가 있는 오솔길, 솜사탕 같은 흰 구름이 떠 있는 맑고 푸른 하늘, 자연 풍경",
+              "attr_id": "background",
+              "label_ko": "배경",
+              "value": "outdoor brick pathway, blurred garden with terracotta pots",
+              "value_ko": "야외 벽돌 길, 테라코타 화분이 있는 흐릿한 정원 배경",
               "is_active": true
-            }
-          ]
-        },
-        {
-          "component_id": "comp_lighting",
-          "component_label": "Lighting",
-          "component_label_ko": "조명",
-          "is_active": true,
-          "attributes": [
+            },
             {
-              "attr_id": "light_main",
-              "label": "Lighting Style",
-              "label_ko": "조명 스타일",
-              "type": "textarea",
-              "value": "bright natural sunlight, soft shadows, warm cinematic lighting, volumetric sun rays, high key lighting",
-              "value_ko": "밝은 자연광, 부드러운 그림자, 따뜻한 시네마틱 조명, 볼류메트릭 선레이(빛내림), 하이키 조명",
+              "attr_id": "lighting",
+              "label_ko": "조명",
+              "value": "soft natural daylight, warm sun-kissed highlights, soft bokeh",
+              "value_ko": "부드러운 자연광, 따스한 햇살의 하이라이트, 부드러운 보케",
               "is_active": true
             }
           ]
@@ -315,23 +293,18 @@ const SAMPLE_TEMPLATE: Template = {
     },
     {
       "section_id": "sec_camera",
-      "section_label": "Camera",
       "section_label_ko": "카메라",
       "is_active": true,
       "components": [
         {
-          "component_id": "comp_camera_settings",
-          "component_label": "Camera Settings",
-          "component_label_ko": "카메라 설정",
+          "component_id": "comp_camera",
           "is_active": true,
           "attributes": [
             {
-              "attr_id": "cam_shot",
-              "label": "Shot Type",
-              "label_ko": "샷 타입",
-              "type": "text",
-              "value": "medium full shot, slightly low angle to show adventure, depth of field background blur",
-              "value_ko": "미디엄 풀 샷, 모험심을 보여주는 약간 낮은 앵글, 배경 흐림(피사계 심도)",
+              "attr_id": "camera_setting",
+              "label_ko": "카메라 설정",
+              "value": "full body shot, eye level, shallow depth of field",
+              "value_ko": "전신 샷, 눈높이, 얕은 심도",
               "is_active": true
             }
           ]
@@ -340,31 +313,431 @@ const SAMPLE_TEMPLATE: Template = {
     },
     {
       "section_id": "sec_style",
-      "section_label": "Style",
       "section_label_ko": "스타일",
       "is_active": true,
       "components": [
         {
-          "component_id": "comp_render",
-          "component_label": "Render Style",
-          "component_label_ko": "렌더링 스타일",
+          "component_id": "comp_style",
           "is_active": true,
           "attributes": [
             {
-              "attr_id": "style_main",
-              "label": "Art Style",
-              "label_ko": "예술 스타일",
-              "type": "textarea",
-              "value": "Pixar animation style, Disney aesthetic, 3D rendering, Unreal Engine 5, Octane Render, high fidelity, vibrant colors, cute aesthetic",
-              "value_ko": "픽사 애니메이션 스타일, 디즈니 미적 감각, 3D 렌더링, 언리얼 엔진 5, 옥테인 렌더, 고해상도, 선명한 색감, 귀여운 분위기",
+              "attr_id": "rendering_style",
+              "label_ko": "렌더링 스타일",
+              "value": "3D stylized rendering, Pixar and Disney inspired, hyper-detailed textures",
+              "value_ko": "3D 스타일 렌더링, 픽사와 디즈니 스타일, 매우 상세한 질감",
               "is_active": true
             }
           ]
         }
       ]
     }
-  ]
+  ],
+  "color_palette": {
+    "primary": "Black & White",
+    "secondary": "Warm Tan",
+    "accent": "Garden Green"
+  }
 };
+
+// --- Sample Storyboard JSON (검은 연기 — 도시의 수호자들) ---
+const SAMPLE_STORYBOARD = `{
+  "project": {
+    "title": "검은 연기 — 도시의 수호자들",
+    "genre": "복합 (액션 + 드라마 + 광고)",
+    "format": "쇼츠 (30초~1분)",
+    "tone": "시네마틱",
+    "language": "한국어",
+    "total_cuts": 6
+  },
+  "characters": [
+    {
+      "id": "char_01",
+      "name": "강현",
+      "role": "주인공",
+      "card": {
+        "국적/인종": "한국인",
+        "성별": "남성",
+        "나이대": "30대 초반",
+        "체형": "lean muscular",
+        "얼굴 특징": "짧은 검은 머리 언더컷, 날카로운 턱선, 왼쪽 눈썹에 작은 흉터",
+        "복장": "흰색 도복(dobok), 검은 띠, 소매 약간 걷음",
+        "성격/분위기": "차분하고 절제된, 내면의 불꽃",
+        "고유 시각 요소": "오른쪽 전완에 한자 문신 '守(수호)'",
+        "직업/역할 배경": "태권도 사범"
+      },
+      "master_images": {
+        "fullbody": {
+          "image_prompt": "Full body portrait of a Korean male martial artist in his early 30s, lean muscular build, sharp jawline, short black undercut hair, small scar on left eyebrow, wearing a white dobok with black belt tied tightly at the waist with sleeves slightly rolled up revealing a Korean Hanja tattoo on right forearm, barefoot standing in a disciplined fighting stance with fists raised, inside a traditional wooden dojo with warm natural light streaming from large side windows, calm and focused expression with quiet intensity, warm golden side lighting with soft shadows, hyper-realistic cinematic portrait shallow depth of field 8K detail. --no text, letters, watermark",
+          "image_ko_description": "전통 나무 도장 안에 서 있는 30대 초반 한국인 남성 무술가. 흰 도복, 검은 띠, 언더컷 헤어, 왼쪽 눈썹 흉터, 오른쪽 전완 한자 문신. 절제된 파이팅 스탠스, 차분하고 집중된 표정. 측면 창문에서 들어오는 따뜻한 자연광."
+        },
+        "character_sheet": {
+          "image_prompt": "Character sheet, full body turnaround of a Korean male martial artist in his early 30s, lean muscular build, sharp jawline, short black undercut hair, small scar on left eyebrow, wearing a white dobok with black belt and sleeves slightly rolled up, Korean Hanja tattoo visible on right forearm. Four views on a single image: front view, left side view, right side view, back view. T-pose neutral standing pose, consistent proportions across all four views. Plain white background, clean studio lighting, evenly lit with no harsh shadows. Hyper-realistic, character design reference sheet, 8K detail. --no text, letters, watermark, no background elements",
+          "image_ko_description": "강현 캐릭터 4면 시트. 흰 배경 위에 정면, 좌측, 우측, 뒷면을 균일한 조명으로 배치. 흰 도복, 검은 띠, 언더컷 헤어, 눈썹 흉터, 전완 문신 등 모든 디테일이 4면에서 일관 표현."
+        }
+      }
+    },
+    {
+      "id": "char_02",
+      "name": "라파엘",
+      "role": "상대",
+      "card": {
+        "국적/인종": "브라질인",
+        "성별": "남성",
+        "나이대": "20대 후반",
+        "체형": "athletic, 넓은 어깨",
+        "얼굴 특징": "짧은 드레드락 뒤로 묶은 작은 번, 깔끔한 수염, 오른쪽 광대뼈 작은 흉터",
+        "복장": "흰색 아바다 팬츠(카포에이라 전통 바지), 상의 없음",
+        "성격/분위기": "자신감 넘치는, 에너지 가득한, 장난기 있는",
+        "고유 시각 요소": "왼쪽 어깨에 부족 문양 문신",
+        "직업/역할 배경": "카포에이라 마스터"
+      },
+      "master_images": {
+        "fullbody": {
+          "image_prompt": "Full body portrait of a Brazilian male capoeira fighter in his late 20s, athletic build with broad shoulders, dark brown skin, short dreadlocks pulled back into a small bun, neatly trimmed beard, small scar on right cheekbone, wearing white abada pants with no shirt revealing a toned muscular torso with a tribal tattoo on left shoulder, barefoot standing in a relaxed ginga stance with weight shifted to one leg and arms loose at sides with a confident smirk, inside a traditional wooden dojo with warm natural light from side windows, warm golden side lighting, hyper-realistic cinematic portrait shallow depth of field 8K detail. --no text, letters, watermark",
+          "image_ko_description": "전통 나무 도장 안의 20대 후반 브라질인 카포에이라 파이터. 흰 아바다 팬츠, 상의 없는 근육질 상체, 드레드락 번, 수염, 광대뼈 흉터, 어깨 부족 문신. 여유로운 깅가 스탠스, 자신감 넘치는 미소."
+        },
+        "character_sheet": {
+          "image_prompt": "Character sheet, full body turnaround of a Brazilian male capoeira fighter in his late 20s, athletic build with broad shoulders, dark brown skin, short dreadlocks in a small bun, trimmed beard, scar on right cheekbone, wearing white abada pants with no shirt, toned muscular torso with tribal tattoo on left shoulder. Four views on a single image: front view, left side view, right side view, back view. T-pose neutral standing pose, consistent proportions across all four views. Plain white background, clean studio lighting, evenly lit with no harsh shadows. Hyper-realistic, character design reference sheet, 8K detail. --no text, letters, watermark, no background elements",
+          "image_ko_description": "라파엘 캐릭터 4면 시트. 흰 배경 위에 정면, 좌측, 우측, 뒷면 배치. 모든 디테일이 4면에서 일관 표현."
+        }
+      }
+    },
+    {
+      "id": "char_03",
+      "name": "수아",
+      "role": "조연",
+      "card": {
+        "국적/인종": "한국인",
+        "성별": "여성",
+        "나이대": "20대 중반",
+        "체형": "slim, 균형잡힌",
+        "얼굴 특징": "긴 검은 머리 포니테일, 부드러운 이목구비, 맑은 눈",
+        "복장": "검은색 스포츠 자켓, 회색 레깅스, 흰 운동화, 목에 은색 호루라기",
+        "성격/분위기": "따뜻하면서도 단호한, 지도자적",
+        "고유 시각 요소": "왼쪽 손목에 은색 팔찌",
+        "직업/역할 배경": "도장 코치 / 강현의 트레이너"
+      },
+      "master_images": {
+        "fullbody": {
+          "image_prompt": "Full body portrait of a Korean female coach in her mid 20s, slim balanced build, long black hair in a high ponytail, soft facial features with clear bright eyes, wearing a black sports jacket over a gray tank top with gray leggings and white sneakers, silver whistle hanging around her neck and silver bracelet on left wrist, standing with arms crossed and a warm but determined expression, inside a traditional wooden dojo with warm side lighting, hyper-realistic cinematic portrait shallow depth of field 8K detail. --no text, letters, watermark",
+          "image_ko_description": "전통 나무 도장 안의 20대 중반 한국인 여성 코치. 검은 스포츠 자켓, 회색 레깅스, 흰 운동화, 포니테일, 은색 호루라기와 팔찌. 팔짱 낀 채 따뜻하면서 단호한 표정."
+        },
+        "character_sheet": {
+          "image_prompt": "Character sheet, full body turnaround of a Korean female coach in her mid 20s, slim build, long black hair in high ponytail, soft features with clear eyes, wearing black sports jacket over gray tank top with gray leggings and white sneakers, silver whistle around neck, silver bracelet on left wrist. Four views on a single image: front view, left side view, right side view, back view. Neutral standing pose, consistent proportions across all four views. Plain white background, clean studio lighting, evenly lit with no harsh shadows. Hyper-realistic, character design reference sheet, 8K detail. --no text, letters, watermark, no background elements",
+          "image_ko_description": "수아 캐릭터 4면 시트. 흰 배경 위에 정면, 좌측, 우측, 뒷면 배치. 모든 디테일 4면 일관 표현."
+        }
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "env_01",
+      "name": "전통 무술 도장",
+      "card": {
+        "장소": "전통 목조 무술 도장",
+        "실내/실외": "실내",
+        "시간대": "오후 (따뜻한 자연광)",
+        "바닥 재질": "나무 마루",
+        "조명": "자연광 (측면 대형 창문)",
+        "조명 방향": "측면광 (왼쪽 창문)",
+        "색온도": "따뜻한 (golden hour 느낌)",
+        "핵심 소품": "벽면 한국 서예 족자, 목검 거치대, 수련 도구",
+        "분위기 키워드": "고요한, 전통적, 숭고한, 긴장감",
+        "날씨/환경효과": "창문 빛줄기 속 미세 먼지 입자"
+      },
+      "allowed_effects": ["먼지 입자", "창문 빛줄기", "나무 바닥 반사광"],
+      "blocked_effects": ["모래", "바람", "비", "눈", "낙엽", "안개"],
+      "master_images": {
+        "wide_establishing": {
+          "image_prompt": "Wide establishing shot of a traditional wooden martial arts dojo interior with polished hardwood floor, large windows on the left wall streaming warm golden afternoon sunlight with visible light shafts, fine dust particles floating in the beams, Korean calligraphy scrolls hanging on the far wall, a wooden sword rack in the corner with practice equipment neatly arranged, warm golden color temperature with deep wooden brown tones, serene and sacred atmosphere. Empty scene no people. Cinematic hyper-realistic 8K detail 16:9 aspect ratio. --no text, letters, watermark, no people, no characters",
+          "image_ko_description": "전통 목조 도장 내부 와이드 전경. 인물 없는 빈 공간. 고요하고 숭고한 분위기."
+        }
+      }
+    },
+    {
+      "id": "env_02",
+      "name": "도장 외부 마당",
+      "card": {
+        "장소": "도장 건물 앞 돌마당 / 전통 한옥 마당",
+        "실내/실외": "실외",
+        "시간대": "석양 (golden hour)",
+        "바닥 재질": "돌바닥 + 잔디 경계",
+        "조명": "석양 자연광",
+        "조명 방향": "역광 / 측면광",
+        "색온도": "매우 따뜻한 (deep golden)",
+        "핵심 소품": "전통 석등, 소나무, 도장 현판",
+        "분위기 키워드": "평화로운, 여운, 성찰, 아름다운",
+        "날씨/환경효과": "석양빛, 미풍, 나뭇잎 흔들림"
+      },
+      "allowed_effects": ["석양 렌즈플레어", "미풍", "나뭇잎 흔들림", "그림자 길게 드리움"],
+      "blocked_effects": ["비", "눈", "안개", "먼지 폭풍"],
+      "master_images": {
+        "wide_establishing": {
+          "image_prompt": "Wide establishing shot of a traditional Korean stone courtyard at golden hour sunset, flat stone ground with grass borders, traditional stone lanterns on both sides, tall pine trees framing the scene, deep golden orange sunset light creating long dramatic shadows, peaceful and reflective atmosphere. Empty scene no people. Cinematic hyper-realistic 8K detail 16:9 aspect ratio. --no text, letters, watermark, no people, no characters",
+          "image_ko_description": "석양빛 전통 한옥 돌마당 와이드 전경. 인물 없는 빈 공간. 평화롭고 성찰적."
+        }
+      }
+    }
+  ],
+  "products": [
+    {
+      "id": "prod_01",
+      "name": "VITA-FORCE 에너지 드링크",
+      "card": {
+        "카테고리": "에너지 음료",
+        "외형 묘사": "매트 블랙 알루미늄 캔, 금색 로고, 250ml, 상단에 금색 풀탭",
+        "브랜드 컬러": "매트 블랙 + 골드",
+        "핵심 셀링포인트": "무설탕, 천연 카페인, 무술인/운동선수용",
+        "사용 맥락": "격렬한 훈련 후 수분/에너지 보충",
+        "무드/이미지": "프리미엄, 강인한, 절제된 럭셔리"
+      },
+      "master_images": {
+        "hero_shot": {
+          "image_prompt": "Eye-level shot of a matte black aluminum energy drink can with a gold logo and gold pull tab on top, 250ml sleek cylindrical shape, placed on a dark stone surface with subtle water droplets on the can surface, dramatic side lighting highlighting the metallic texture and gold logo, dark moody background with a single warm spotlight, matte black and gold color palette, premium commercial product photography clean background 8K detail. --no text, letters, watermark",
+          "image_ko_description": "어두운 돌 표면 위의 매트 블랙 에너지 드링크 캔. 금색 로고와 풀탭, 캔 표면 미세 물방울. 프리미엄하고 강인한 무드."
+        },
+        "product_turnaround": {
+          "image_prompt": "Product turnaround sheet of a matte black aluminum energy drink can with gold logo and gold pull tab, 250ml sleek cylinder. Four views on a single image: front view showing full logo, left side view, right side view, back view. Plain white background, clean studio lighting, evenly lit. Commercial product photography, 8K detail. --no text, letters, watermark, no background elements",
+          "image_ko_description": "매트 블랙 에너지 드링크 캔 4면 턴어라운드. 흰 배경 위에 정면, 좌측, 우측, 뒷면 배치."
+        }
+      }
+    }
+  ],
+  "group_shots": [
+    {
+      "id": "group_01",
+      "type": "투샷 대치",
+      "character_ids": ["char_01", "char_02"],
+      "image_prompt": "Wide cinematic shot inside a traditional wooden dojo. On the left, a Korean martial artist in white dobok with black belt in a disciplined fighting stance. On the right, a shirtless Brazilian capoeira fighter in white pants swaying in a ginga stance. They face each other 3 meters apart. Dust particles float in warm golden sunlight. Tense atmosphere. Cinematic hyper-realistic 8K. --no text, letters, watermark",
+      "image_ko_description": "도장 안에서 대치하는 두 격투가. 왼쪽 강현(흰 도복), 오른쪽 라파엘(상의 없음). 3m 간격, 긴장감."
+    },
+    {
+      "id": "group_02",
+      "type": "그룹샷 (3인)",
+      "character_ids": ["char_01", "char_02", "char_03"],
+      "image_prompt": "Wide cinematic shot at a traditional Korean courtyard at golden hour sunset. In the center, a Korean male martial artist in white dobok with arms crossed. To his left, a shirtless Brazilian capoeira fighter in white pants leaning casually against a stone lantern. To his right, a Korean female coach in black sports jacket with hands on hips. All three face the camera with confident expressions. Deep golden sunset backlight. Cinematic hyper-realistic 8K. --no text, letters, watermark",
+      "image_ko_description": "석양빛 한옥 마당에 선 세 사람. 중앙 강현, 왼쪽 라파엘, 오른쪽 수아. 자신감 있는 표정, 깊은 금빛 역광."
+    }
+  ],
+  "scenes": [
+    {
+      "id": 1,
+      "scene_title": "새벽 도장의 고요",
+      "narrative_phase": "기",
+      "character_id": "char_01",
+      "environment_id": "env_01",
+      "transition_to_next": "J컷 (라파엘 발소리가 먼저 들림)",
+      "video_main": {
+        "id": "scene_01_main",
+        "duration": "0~5s",
+        "directing_intent": "도장의 신성한 공간감과 주인공의 내면적 고요함을 보여준다",
+        "shot_type": "Extreme wide shot",
+        "camera_move": "Slowly tracking forward through the dojo",
+        "image_prompt": "Extreme wide shot, a traditional wooden dojo interior in the early morning, warm golden sunlight streaming through large side windows casting long light shafts across the polished wooden floor, dust particles floating gently in the light beams, Korean calligraphy scrolls on the walls and wooden sword rack in the corner, a lone figure of a Korean martial artist in a white dobok standing at the far center in a meditative stance with eyes closed, serene and sacred atmosphere, warm golden tones with deep wooden browns, cinematic film grain high contrast photography 16:9 aspect ratio. --no text, letters, watermark",
+        "image_ko_description": "익스트림 와이드. 이른 아침 도장 전경. 금빛 햇살과 먼지 입자. 멀리 중앙에 강현이 눈 감고 명상 중.",
+        "video_prompt": "0~5s: Extreme wide shot, slowly tracking forward through the dojo. The camera glides through the empty traditional wooden dojo, warm golden sunlight streams through side windows with dust particles drifting lazily through the light shafts, the polished wooden floor creaks faintly, at the far center the Korean martial artist in white dobok stands perfectly still in meditation with eyes closed, his steady breathing the only audible sound. --no BGM, no music, no soundtrack",
+        "video_ko_description": "익스트림 와이드, 도장 내부를 천천히 전진 트래킹. 금빛 햇살 속 먼지, 나무 바닥 삐걱 소리. 멀리 강현이 명상 중, 고요한 호흡만 들린다.",
+        "audio_description": "0~2s: Deep silence with faint wooden floor settling. 2~4s: Soft wind filtering through window cracks. 4~5s: Barely audible steady breathing rhythm.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      },
+      "video_extend": {
+        "id": "scene_01_ext",
+        "duration": "0~5s",
+        "directing_intent": "주인공의 집중된 내면과 절제된 힘을 표정으로 전달한다",
+        "shot_type": "Close-up",
+        "camera_move": "Slowly pushing in toward his face",
+        "image_prompt": "Close-up, the Korean martial artist in white dobok with short black undercut hair and small scar on left eyebrow, eyes closed in deep meditation, his chest rising and falling with controlled breathing, a single dust particle drifts past his face catching the golden sidelight, utterly calm and centered expression, wooden dojo wall with calligraphy scroll in soft bokeh behind, warm amber side lighting with cool shadow on opposite side, cinematic film grain 16:9 aspect ratio. --no text, letters, watermark",
+        "image_ko_description": "클로즈업. 강현의 명상 표정. 눈 감고, 절제된 호흡, 먼지 한 알이 얼굴 옆을 지남. 뒤로 서예 족자 보케.",
+        "video_prompt": "0~5s: Close-up, slowly pushing in toward his face. The Korean martial artist in white dobok with undercut hair and eyebrow scar stands in deep meditation, his chest rises and falls with controlled breathing, a single dust particle drifts past his face catching the golden sidelight, his expression utterly calm and centered, the warmth of the dojo light plays across his features. --no BGM, no music, no soundtrack",
+        "video_ko_description": "클로즈업, 얼굴로 천천히 푸시인. 명상 중 강현의 표정. 가슴 오르내리는 호흡, 먼지 한 알 금빛 반사, 완전한 고요.",
+        "audio_description": "0~2s: Subtle room tone with warmth. 2~4s: Soft rhythmic inhale and exhale clearly audible. 4~5s: Faint distant footsteps approaching (J-cut bridge to next scene).",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      }
+    },
+    {
+      "id": 2,
+      "scene_title": "대치 — 두 세계의 충돌",
+      "narrative_phase": "승",
+      "character_id": "char_01",
+      "environment_id": "env_01",
+      "transition_to_next": "스매시컷 (고요 → 폭발적 액션)",
+      "video_main": {
+        "id": "scene_02_main",
+        "duration": "0~5s",
+        "directing_intent": "두 격투가의 대비되는 스타일과 팽팽한 긴장을 동시에 보여준다",
+        "shot_type": "Wide shot",
+        "camera_move": "Slowly dollying left to right",
+        "image_prompt": "Wide shot, inside the traditional wooden dojo, the Korean martial artist in white dobok on the left in a disciplined fighting stance with fists raised, the shirtless Brazilian capoeira fighter in white pants on the right swaying in a rhythmic ginga, they face each other 3 meters apart, golden dust particles drifting between them in warm sidelight, tense electric atmosphere, warm golden tones with dramatic contrast, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "와이드샷. 도장 안 대치. 왼쪽 강현(파이팅 스탠스), 오른쪽 라파엘(깅가 리듬). 3m 간격, 금빛 먼지, 팽팽한 긴장.",
+        "video_prompt": "0~5s: Wide shot, slowly dollying from left to right across the dojo. The Korean martial artist in white dobok raises his fists with a controlled exhale, the Brazilian capoeira fighter in white pants shifts his weight in a rhythmic ginga with bare feet whispering against the wooden floor, golden dust particles drift between them, a long tense silence holds with only breathing and distant wood creaking. --no BGM, no music, no soundtrack",
+        "video_ko_description": "와이드, 좌에서 우로 달리. 강현 절제된 호흡, 라파엘 깅가 리듬. 금빛 먼지, 호흡과 나무 소리만의 긴장.",
+        "audio_description": "0~2s: Controlled exhale from Korean fighter. 2~4s: Bare feet shifting rhythmically on polished wood. 4~5s: Tense silence, faint dust drift.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      },
+      "video_extend": {
+        "id": "scene_02_ext",
+        "duration": "0~5s",
+        "directing_intent": "눈빛 교차로 두 사람의 결의와 존중을 동시에 포착한다",
+        "shot_type": "Extreme close-up",
+        "camera_move": "Static with rack focus between two faces",
+        "image_prompt": "Extreme close-up, split composition, the Korean martial artist's calm intense dark eyes on the left half of frame with golden sidelight, sharp and focused, warm amber iris catching light, shallow depth of field with the dojo in soft golden bokeh behind, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "익스트림 클로즈업. 강현의 차분하고 강렬한 눈. 금빛 측면광에 홍채가 빛남. 배경 도장 보케.",
+        "video_prompt": "0~5s: Extreme close-up, static with rack focus. The Korean martial artist's calm intense dark eyes fill the left of frame, then rack focus shifts to the Brazilian fighter's bright confident eyes on the right, golden sidelight reflecting in both gazes, the sharp piercing tweet of a silver whistle breaks the absolute silence at the end. --no BGM, no music, no soundtrack",
+        "video_ko_description": "익스트림 클로즈업, 랙 포커스. 강현의 차분한 눈 → 라파엘의 자신감 넘치는 눈. 금빛 반사. 마지막에 호루라기가 정적을 깬다.",
+        "audio_description": "0~2s: Absolute tense silence. 2~4s: Faint heartbeat-like pulse in stillness. 4~5s: Sharp piercing whistle breaking silence.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      }
+    },
+    {
+      "id": 3,
+      "scene_title": "결정타 — 점프 뒤돌려차기",
+      "narrative_phase": "전",
+      "character_id": "char_01",
+      "environment_id": "env_01",
+      "transition_to_next": "스피드 램프 컷 (슬로모션 → 일반 속도)",
+      "video_main": {
+        "id": "scene_03_main",
+        "duration": "0~5s",
+        "directing_intent": "주인공의 압도적 파워와 기술을 최대 스케일로 보여주는 클라이맥스",
+        "shot_type": "Wide shot, low angle",
+        "camera_move": "Tracking from side with speed ramp to slow motion at impact",
+        "image_prompt": "Wide shot low angle, inside the wooden dojo, the Korean martial artist in white dobok mid-sprint leaping into the air with his body beginning to spin, the Brazilian fighter in white pants in defensive stance bracing for impact, golden dust erupting from the wooden floor, warm dramatic sidelight with high contrast shadows, dynamic and explosive energy, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "와이드 로우앵글. 강현이 도약하며 회전 시작, 라파엘 방어 자세. 바닥에서 먼지 분출, 폭발적 에너지.",
+        "video_prompt": "0~5s: Wide shot low angle, tracking from side with speed ramp. The Korean martial artist in white dobok sprints forward two powerful steps then plants his left foot hard with a resonant stomp, leaps into the air spinning 360 degrees and delivers a devastating jumping spinning back kick, his right heel connects with the Brazilian fighter's chest in slow motion at the exact moment of impact, the white dobok whips violently during the spin, sweat droplets burst catching the golden sidelight. Dynamic action choreography, rapid movement. --no BGM, no music, no soundtrack",
+        "video_ko_description": "와이드 로우앵글, 측면 트래킹+스피드 램프. 강현 질주→도약→360도 회전 점프 뒤돌려차기. 임팩트 순간 슬로모션. 도복 펄럭임, 땀 폭발.",
+        "audio_description": "0~2s: Heavy accelerating footsteps ending in powerful stomp. 2~4s: Whoosh of spinning body — slows with speed ramp. 4~5s: Thunderous boom of heel connecting with chest.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      },
+      "video_extend": {
+        "id": "scene_03_ext",
+        "duration": "0~5s",
+        "directing_intent": "피격 후 날아가는 상대의 리액션과 주인공의 결연한 착지를 포착",
+        "shot_type": "Medium shot, handheld",
+        "camera_move": "Handheld with slight shake, slowly pushing in",
+        "image_prompt": "Medium shot handheld, the Brazilian fighter in white pants launched backward through the air inside the wooden dojo, the Korean martial artist in white dobok landing firmly on both feet in a fighting stance in the foreground, golden dust and sweat particles suspended in warm sidelight, raw and intense aftermath, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "미디엄 핸드헬드. 라파엘이 뒤로 날아가고, 전경에 강현이 양발 착지 파이팅 스탠스. 먼지와 땀이 금빛에 부유.",
+        "video_prompt": "0~5s: Medium shot, handheld with slight shake, slowly pushing in. The Brazilian fighter in white pants is launched off his feet flying backward through the air, crashes onto the wooden dojo floor and slides across the polished surface, the Korean martial artist in white dobok lands firmly on both feet in a fighting stance with a sharp exhale, dust settles around him in the golden sidelight, his expression focused and resolved. --no BGM, no music, no soundtrack",
+        "video_ko_description": "미디엄 핸드헬드. 라파엘 날아가 바닥에 떨어져 미끄러짐. 강현 양발 착지, 날카로운 호흡. 먼지 가라앉음, 결연한 표정.",
+        "audio_description": "0~2s: Body crashing onto wooden floor with heavy sliding scrape. 2~4s: Sharp exhale from Korean fighter landing. 4~5s: Dust settling, heavy breathing from both.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      }
+    },
+    {
+      "id": 4,
+      "scene_title": "존중의 악수",
+      "narrative_phase": "결",
+      "character_id": "char_01",
+      "environment_id": "env_01",
+      "transition_to_next": "디졸브 (도장 → 석양 마당)",
+      "video_main": {
+        "id": "scene_04_main",
+        "duration": "0~5s",
+        "directing_intent": "격렬한 대결 후 스포츠맨십과 상호 존중을 보여준다",
+        "shot_type": "Full shot",
+        "camera_move": "Static, level angle",
+        "image_prompt": "Full shot level angle, inside the wooden dojo, the Korean martial artist in white dobok standing with lowered fists breathing heavily, extending his right hand downward toward the Brazilian capoeira fighter who is on one knee holding his chest, warm golden sidelight creating a peaceful glow between them, dust settling in light beams, atmosphere shifting from intensity to mutual respect, warm amber palette, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "풀샷. 강현이 숨 고르며 손을 내밀고, 라파엘이 무릎 꿇고 올려다봄. 먼지 가라앉는 금빛 속 존중의 순간.",
+        "video_prompt": "0~5s: Full shot, static level angle. The Korean martial artist in white dobok stands breathing heavily then slowly lowers his fists and extends his right hand with a calm nod, the Brazilian fighter on one knee looks up with surprise then breaks into a respectful grin, clasps the hand and pulls himself up, they shake hands firmly. --no BGM, no music, no soundtrack",
+        "video_ko_description": "풀샷 고정. 강현이 거친 숨 고르며 손 내밀고, 라파엘이 놀란 뒤 웃으며 손 잡고 일어남. 단단한 악수.",
+        "audio_description": "0~2s: Heavy breathing gradually slowing. 2~4s: Firm hand clasp and grunt standing up. 4~5s: Warm genuine laughter.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      },
+      "video_extend": {
+        "id": "scene_04_ext",
+        "duration": "0~5s",
+        "directing_intent": "코치의 따뜻한 인정과 세 사람의 유대감을 전달한다",
+        "shot_type": "Medium shot",
+        "camera_move": "Slowly pushing in",
+        "image_prompt": "Medium shot, the Brazilian fighter patting the Korean fighter's shoulder with a genuine laugh, the Korean female coach in black sports jacket visible at the edge of the dojo with a proud warm expression, dust settling peacefully in golden light between them all, intimate warm atmosphere, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "미디엄샷. 라파엘이 강현 어깨 두드리며 웃고, 가장자리에 수아가 자랑스러운 표정. 금빛 속 따뜻한 분위기.",
+        "video_prompt": "0~5s: Medium shot, slowly pushing in. The Brazilian fighter pats the Korean fighter on the shoulder with a genuine laugh, from the edge of the dojo the Korean female coach in black sports jacket calls out warmly, dust settles peacefully in the golden light. --no BGM, no music, no soundtrack",
+        "video_ko_description": "미디엄, 푸시인. 라파엘이 어깨 두드리며 웃고, 수아가 따뜻하게 말한다. 금빛 속 먼지 가라앉음.",
+        "audio_description": "0~2s: Shoulder pat and warm laughter. 2~4s: Dust settling softly. 4~5s: Female voice calling out warmly.",
+        "dialogue": "3~5s: 수아: \\"잘 싸웠어 둘 다\\"",
+        "dialogue_language": "한국어"
+      }
+    },
+    {
+      "id": 5,
+      "scene_title": "에너지 보충",
+      "narrative_phase": "결",
+      "character_id": "char_01",
+      "environment_id": "env_01",
+      "transition_to_next": "매치컷 (캔 클로즈업 → 석양 속 캔)",
+      "video_main": {
+        "id": "scene_05_main",
+        "duration": "0~5s",
+        "directing_intent": "제품을 자연스러운 일상 맥락 속에서 보여주고, 캐릭터와의 친밀한 관계를 전달한다",
+        "shot_type": "Medium shot",
+        "camera_move": "Slowly pushing in",
+        "image_prompt": "Medium shot, inside the wooden dojo, the Korean martial artist in white dobok sitting on the wooden floor leaning against the wall with a tired peaceful expression, the Korean female coach in black sports jacket crouching beside him handing him a matte black energy drink can with gold logo, the Brazilian fighter in white pants sitting across holding an identical can with a relaxed grin, warm golden afternoon light, product clearly visible, relaxed intimate atmosphere, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "미디엄샷. 도장 벽에 기댄 강현에게 수아가 에너지 드링크를 건넨다. 맞은편 라파엘도 같은 캔. 따뜻한 금빛 속 편안한 분위기. 제품 선명.",
+        "video_prompt": "0~5s: Medium shot, slowly pushing in. The Korean martial artist sits on the wooden floor leaning against the wall, the coach crouches beside him and holds out a matte black energy drink can with a soft clink, he takes it with a grateful nod and twists open the pull tab with a satisfying crisp pop and carbonation hiss, takes a long sip then exhales with relief. --no BGM, no music, no soundtrack",
+        "video_ko_description": "미디엄 푸시인. 강현 벽에 기대앉고, 수아가 캔 건넨다. 딸깍 소리, 감사히 받아 풀탭 따며 팝 탄산 소리, 한 모금 마시고 안도의 숨.",
+        "audio_description": "0~2s: Fabric rustling as coach crouches. 2~4s: Aluminum clink, crisp pop of pull tab, carbonation hiss. 4~5s: Long sip and relieved exhale.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      },
+      "video_extend": {
+        "id": "scene_05_ext",
+        "duration": "0~5s",
+        "directing_intent": "제품을 프리미엄 히어로 모먼트로 클로즈업하면서 캐릭터 유대감을 유지한다",
+        "shot_type": "Extreme close-up macro",
+        "camera_move": "Smoothly orbiting around the can",
+        "image_prompt": "Extreme close-up macro, a matte black energy drink can with gold logo held in a sweaty hand, condensation droplets on the metallic surface catching warm golden dojo sidelight, gold pull tab already opened, wooden dojo floor in soft bokeh background, product as absolute visual focal point, matte black and gold palette with warm amber ambient, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "매크로 클로즈업. 땀 젖은 손의 매트 블랙 캔, 결로 물방울 금빛 반사, 열린 풀탭. 배경 도장 보케. 제품이 절대적 시각 중심.",
+        "video_prompt": "0~5s: Extreme close-up macro, smoothly orbiting around the can. Condensation droplets catch warm golden light rolling slowly down the metallic surface, the gold logo gleams as the can rotates, the Brazilian fighter's voice is heard off-screen raising his can in a casual toast. --no BGM, no music, no soundtrack",
+        "video_ko_description": "매크로 오빗. 결로 물방울이 금빛에 금속 표면을 흐르고, 로고가 회전하며 빛남. 화면 밖 라파엘 목소리로 건배.",
+        "audio_description": "0~2s: Faint condensation trickling on metal. 2~4s: Soft metallic gleam as logo catches light. 4~5s: Off-screen voice with warm laugh.",
+        "dialogue": "3~5s: 라파엘 (off-screen): \\"좋은 경기였어 형\\"",
+        "dialogue_language": "한국어"
+      }
+    },
+    {
+      "id": 6,
+      "scene_title": "석양의 세 사람",
+      "narrative_phase": "결",
+      "character_id": null,
+      "environment_id": "env_02",
+      "transition_to_next": "페이드 아웃 (엔딩)",
+      "video_main": {
+        "id": "scene_06_main",
+        "duration": "0~5s",
+        "directing_intent": "세 사람의 동료애와 성취감을 석양의 스케일감으로 마무리한다",
+        "shot_type": "Wide cinematic shot",
+        "camera_move": "Crane shot slowly rising upward",
+        "image_prompt": "Wide cinematic shot, traditional Korean stone courtyard at golden hour sunset, three figures standing side by side facing the sunset, center Korean martial artist in white dobok, left shirtless Brazilian fighter with towel on shoulder, right Korean female coach in black jacket with ponytail catching wind, all silhouetted against deep golden orange sunset with long dramatic shadows, stone lanterns and pine trees framing the scene, peaceful powerful atmosphere, deep golden amber palette, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "와이드 시네마틱. 석양빛 돌마당에 세 사람이 나란히 서서 석양을 바라봄. 실루엣과 긴 그림자. 평화롭고 강인한 동료애.",
+        "video_prompt": "0~5s: Wide cinematic shot, crane shot slowly rising from ground level. The traditional Korean stone courtyard bathed in deep golden sunset light, three figures stand side by side facing the horizon, the Korean martial artist in center exhales peacefully, the Brazilian fighter adjusts his towel, the coach smiles as wind rustles pine trees, long shadows stretch toward camera. --no BGM, no music, no soundtrack",
+        "video_ko_description": "와이드 크레인샷 상승. 석양빛 돌마당, 세 사람 나란히 석양 바라봄. 강현 평화로운 호흡, 라파엘 수건 고침, 수아 미소. 소나무 바람, 긴 그림자.",
+        "audio_description": "0~2s: Gentle wind through pine trees. 2~4s: Distant temple bell rings once. 4~5s: Peaceful silence with faint wind.",
+        "dialogue": "None",
+        "dialogue_language": "No dialogue"
+      },
+      "video_extend": {
+        "id": "scene_06_ext",
+        "duration": "0~5s",
+        "directing_intent": "대사로 내일을 약속하며 여운과 희망을 남긴다",
+        "shot_type": "Medium shot",
+        "camera_move": "Level angle, slowly pulling back",
+        "image_prompt": "Medium shot, the three figures at the stone courtyard, the Brazilian fighter nudging the Korean fighter's arm playfully, the coach tucking hair behind her ear with a smile, deep golden sunset backlight creating warm silhouettes, intimate and warm farewell atmosphere, cinematic film grain 16:9. --no text, letters, watermark",
+        "image_ko_description": "미디엄샷. 라파엘이 강현 팔을 장난스럽게 찌르고, 수아가 머리카락 넘기며 미소. 금빛 역광 실루엣. 따뜻한 여운.",
+        "video_prompt": "0~5s: Medium shot, level angle, slowly pulling back. The Brazilian fighter nudges the Korean fighter's arm playfully, the coach tucks hair behind her ear smiling, the camera pulls back revealing the full sunset landscape, warm golden light envelops all three as the scene fades to warmth and silence. --no BGM, no music, no soundtrack",
+        "video_ko_description": "미디엄, 천천히 풀백. 라파엘 장난스럽게 팔 찌르고, 수아 미소. 풀백하며 석양 전체 드러남. 따뜻한 정적으로 마무리.",
+        "audio_description": "0~2s: Playful arm nudge and soft laugh. 2~4s: Wind through hair, pine rustle. 4~5s: Warm silence settling.",
+        "dialogue": "2~4s: 강현: \\"내일 또 하자\\" / 라파엘: \\"당연하지\\"",
+        "dialogue_language": "한국어"
+      }
+    }
+  ]
+}`;
 
 // --- Default Empty Template ---
 
@@ -588,6 +961,21 @@ const Stage2Content = ({
     } : p));
   };
 
+  const updateImageMainPrompt = (id: number, newPrompt: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? {
+      ...p,
+      prompt: newPrompt,
+      image_main: p.image_main ? { ...p.image_main, prompt: newPrompt } : undefined,
+    } : p));
+  };
+
+  const updateImageExtendPrompt = (id: number, newPrompt: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? {
+      ...p,
+      image_extend: p.image_extend ? { ...p.image_extend, prompt: newPrompt } : undefined,
+    } : p));
+  };
+
   const pasteToPrompt = (id: number) => {
     navigator.clipboard.readText().then(text => {
       updatePrompt(id, text);
@@ -655,6 +1043,14 @@ const Stage2Content = ({
       <div className="flex-1 overflow-y-auto space-y-3 md:space-y-4">
         {prompts.map((scene) => {
           const isVideoSplit = subPage === 'video' && scene.video_main;
+          const isImageSplit = subPage === 'image' && scene.image_main;
+          const isSplit = isVideoSplit || isImageSplit;
+          const mainData = isVideoSplit ? scene.video_main! : isImageSplit ? scene.image_main! : null;
+          const extData = isVideoSplit ? scene.video_extend : isImageSplit ? scene.image_extend : null;
+          const onUpdateMain = isVideoSplit ? updateVideoMainPrompt : updateImageMainPrompt;
+          const onUpdateExt = isVideoSplit ? updateVideoExtendPrompt : updateImageExtendPrompt;
+          const SplitIcon = subPage === 'video' ? Film : ImageIcon;
+
           return (
             <div key={scene.id} className="neo-card-static rounded-xl overflow-hidden">
               {/* Card Header */}
@@ -665,7 +1061,7 @@ const Stage2Content = ({
                   </span>
                   <span className="text-sm md:text-base font-medium text-foreground">{scene.scene_title}</span>
                 </div>
-                {!isVideoSplit && (
+                {!isSplit && (
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => pasteToPrompt(scene.id)}
@@ -685,17 +1081,17 @@ const Stage2Content = ({
                 )}
               </div>
 
-              {isVideoSplit ? (
-                /* Video Split View: 메인컷 / 연장컷 — grid로 행 높이 동기화 */
+              {isSplit && mainData ? (
+                /* Split View: 메인컷 / 연장컷 — grid로 행 높이 동기화 */
                 <div className="grid grid-cols-1 lg:grid-cols-2">
                   {/* Row 1: Section headers with copy buttons */}
                   <div className="order-1 lg:order-none px-3 md:px-4 py-1.5 bg-primary/10 text-[11px] font-bold text-primary uppercase tracking-wide border-b-2 border-foreground/10 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <Film className="w-3 h-3" />
+                      <SplitIcon className="w-3 h-3" />
                       메인컷
                     </div>
                     <button
-                      onClick={() => copyText(scene.video_main!.prompt, `${scene.id}-main`)}
+                      onClick={() => copyText(mainData.prompt, `${scene.id}-main`)}
                       className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"
                     >
                       {copiedKey === `${scene.id}-main` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
@@ -704,11 +1100,11 @@ const Stage2Content = ({
                   </div>
                   <div className="order-4 lg:order-none px-3 md:px-4 py-1.5 bg-secondary/10 text-[11px] font-bold text-secondary uppercase tracking-wide border-b-2 border-foreground/10 flex items-center justify-between lg:border-l-3 border-foreground/15 border-t-3 lg:border-t-0">
                     <div className="flex items-center gap-1.5">
-                      <Film className="w-3 h-3" />
+                      <SplitIcon className="w-3 h-3" />
                       연장컷
                     </div>
                     <button
-                      onClick={() => copyText(scene.video_extend?.prompt || '', `${scene.id}-ext`)}
+                      onClick={() => copyText(extData?.prompt || '', `${scene.id}-ext`)}
                       className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"
                     >
                       {copiedKey === `${scene.id}-ext` ? <Check className="w-3 h-3 text-secondary" /> : <Copy className="w-3 h-3" />}
@@ -719,19 +1115,19 @@ const Stage2Content = ({
                   {/* Row 2: Korean descriptions — 같은 행이므로 높이 자동 동기화 */}
                   <div className="order-2 lg:order-none p-3 md:p-4 border-b-2 border-foreground/10">
                     <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
-                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.video_main!.ko_description}</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{mainData.ko_description}</p>
                   </div>
                   <div className="order-5 lg:order-none p-3 md:p-4 border-b-2 border-foreground/10 lg:border-l-3 border-foreground/15">
                     <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">한국어 설명</div>
-                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{scene.video_extend?.ko_description || ''}</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{extData?.ko_description || ''}</p>
                   </div>
 
                   {/* Row 3: English prompts */}
                   <div className="order-3 lg:order-none p-3 md:p-4 bg-content2">
                     <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
                     <textarea
-                      value={scene.video_main!.prompt}
-                      onChange={(e) => updateVideoMainPrompt(scene.id, e.target.value)}
+                      value={mainData.prompt}
+                      onChange={(e) => onUpdateMain(scene.id, e.target.value)}
                       className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
                       rows={3}
                     />
@@ -739,8 +1135,8 @@ const Stage2Content = ({
                   <div className="order-6 lg:order-none p-3 md:p-4 bg-content2 lg:border-l-3 border-foreground/15">
                     <div className="text-[10px] uppercase tracking-wider text-foreground/40 mb-2 font-medium">English Prompt</div>
                     <textarea
-                      value={scene.video_extend?.prompt || ''}
-                      onChange={(e) => updateVideoExtendPrompt(scene.id, e.target.value)}
+                      value={extData?.prompt || ''}
+                      onChange={(e) => onUpdateExt(scene.id, e.target.value)}
                       className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2 resize-y min-h-[60px]"
                       rows={3}
                     />
@@ -4762,21 +5158,38 @@ const App = () => {
 
         setConceptArtData({ characters: chars, environments: envs, products: prods, group_shots: gs });
 
-        // Parse scenes into image/video prompts
+        // Parse scenes into image/video prompts (v4 schema: prompts inside video_main/video_extend)
         if (Array.isArray(sb.scenes)) {
           const imgP: ScenePrompt[] = [];
           const vidP: ScenePrompt[] = [];
           for (const s of sb.scenes) {
             if (typeof s.id !== 'number') continue;
-            if (s.image_prompt) imgP.push({ id: s.id, scene_title: s.scene_title || '', prompt: s.image_prompt, ko_description: s.image_ko_description || '' });
-            if (s.video_main || s.video_extend || s.video_prompt) {
+
+            // Image prompts: v4 schema has image_prompt inside video_main/video_extend, legacy at scene root
+            const imgMain = s.video_main?.image_prompt || s.image_prompt;
+            const imgExt = s.video_extend?.image_prompt;
+            if (imgMain || imgExt) {
+              imgP.push({
+                id: s.id,
+                scene_title: s.scene_title || '',
+                prompt: imgMain || '',
+                ko_description: s.video_main?.image_ko_description || s.image_ko_description || '',
+                image_main: imgMain ? { prompt: imgMain, ko_description: s.video_main?.image_ko_description || s.image_ko_description || '' } : undefined,
+                image_extend: imgExt ? { prompt: imgExt, ko_description: s.video_extend?.image_ko_description || '' } : undefined,
+              });
+            }
+
+            // Video prompts: v4 schema has video_prompt inside video_main/video_extend, legacy at scene root
+            const vidMain = s.video_main?.video_prompt || s.video_prompt;
+            const vidExt = s.video_extend?.video_prompt;
+            if (vidMain || vidExt) {
               vidP.push({
                 id: s.id,
                 scene_title: s.scene_title || '',
-                prompt: s.video_main?.video_prompt || s.video_prompt || '',
+                prompt: vidMain || '',
                 ko_description: s.video_main?.video_ko_description || s.video_ko_description || '',
-                video_main: s.video_main ? { prompt: s.video_main.video_prompt || '', ko_description: s.video_main.video_ko_description || '' } : undefined,
-                video_extend: s.video_extend ? { prompt: s.video_extend.video_prompt || '', ko_description: s.video_extend.video_ko_description || '' } : undefined,
+                video_main: vidMain ? { prompt: vidMain, ko_description: s.video_main?.video_ko_description || s.video_ko_description || '' } : undefined,
+                video_extend: vidExt ? { prompt: vidExt, ko_description: s.video_extend?.video_ko_description || '' } : undefined,
               });
             }
           }
@@ -4867,7 +5280,7 @@ const App = () => {
   const [videoPrompts, setVideoPrompts] = useState<ScenePrompt[]>([]);
   const [isStage2UploadOpen, setIsStage2UploadOpen] = useState(false);
   const [stage2UploadTarget, setStage2UploadTarget] = useState<Stage2SubPage>('image');
-  const [stage2UploadInput, setStage2UploadInput] = useState('');
+  const [stage2UploadInput, setStage2UploadInput] = useState(SAMPLE_STORYBOARD);
   const [stage2UploadError, setStage2UploadError] = useState<string | null>(null);
   const [conceptArtData, setConceptArtData] = useState<ConceptArtData>({ characters: [], environments: [], products: [], group_shots: [] });
 
