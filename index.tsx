@@ -1740,8 +1740,9 @@ const AudioSeparatorContent = () => {
     const tick = () => {
       const video = videoRef.current;
       const audioEls: HTMLAudioElement[] = [...audioRefs.current.values()];
-      // Master clock: video if video mode, else first audio
-      const masterTime = video && !video.paused ? video.currentTime : audioEls[0]?.currentTime;
+      // Master clock: video if video mode, else first playing audio
+      const playingAudio = audioEls.find(el => !el.paused && !el.ended);
+      const masterTime = video && !video.paused ? video.currentTime : playingAudio?.currentTime;
       if (masterTime === undefined) { rafRef.current = 0; return; }
       // Stop if all sources are paused/ended
       const videoPaused = !video || video.paused;

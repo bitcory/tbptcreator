@@ -14,12 +14,12 @@ import {
 const SEGMENT_SIZE = 256
 
 const MODEL_URLS = [
-  'https://huggingface.co/Politrees/UVR_resources/resolve/main/models/MDXNet/UVR-MDX-NET-Inst_HQ_2.onnx',
-  'https://huggingface.co/seanghay/uvr_models/resolve/main/UVR-MDX-NET-Inst_HQ_2.onnx',
+  'https://huggingface.co/Politrees/UVR_resources/resolve/main/models/MDXNet/UVR-MDX-NET-Inst_HQ_3.onnx',
+  'https://huggingface.co/seanghay/uvr_models/resolve/main/UVR-MDX-NET-Inst_HQ_3.onnx',
 ]
 const MODEL_DB_NAME = 'stem-separator-cache'
 const MODEL_DB_STORE = 'models'
-const MODEL_KEY = 'UVR-MDX-NET-Inst_HQ_2'
+const MODEL_KEY = 'UVR-MDX-NET-Inst_HQ_3'
 
 let session: ort.InferenceSession | null = null
 
@@ -122,7 +122,7 @@ async function loadModel(): Promise<void> {
     return
   }
 
-  ort.env.wasm.numThreads = 1
+  ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4
   ort.env.wasm.proxy = false
 
   progress('download', 0, 'WASM 런타임 준비 중...')
@@ -150,7 +150,7 @@ async function loadModel(): Promise<void> {
 
   progress('download', 97, '추론 세션 생성 중...')
   session = await ort.InferenceSession.create(modelBuffer, {
-    executionProviders: ['wasm'],
+    executionProviders: ['webgpu', 'wasm'],
     graphOptimizationLevel: 'all',
   })
 

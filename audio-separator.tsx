@@ -18,12 +18,13 @@ function formatFileName(name: string) {
 function AudioPlayer({ label, blob, color }: { label: string; blob: Blob; color: string }) {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [url, setUrl] = useState('')
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const urlRef = useRef<string>('')
 
   useEffect(() => {
-    urlRef.current = URL.createObjectURL(blob)
-    return () => URL.revokeObjectURL(urlRef.current)
+    const objectUrl = URL.createObjectURL(blob)
+    setUrl(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
   }, [blob])
 
   const toggle = () => {
@@ -38,7 +39,7 @@ function AudioPlayer({ label, blob, color }: { label: string; blob: Blob; color:
 
   const handleDownload = () => {
     const a = document.createElement('a')
-    a.href = urlRef.current
+    a.href = url
     a.download = `${label}.wav`
     a.click()
   }
@@ -50,17 +51,21 @@ function AudioPlayer({ label, blob, color }: { label: string; blob: Blob; color:
         <span className="font-bold text-sm">{label}</span>
       </div>
 
-      <audio
-        ref={audioRef}
-        src={urlRef.current}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => { setPlaying(false); setProgress(0) }}
-        onTimeUpdate={(e) => {
-          const a = e.currentTarget
-          if (a.duration) setProgress((a.currentTime / a.duration) * 100)
-        }}
-      />
+      {url && (
+        <audio
+          key={url}
+          ref={audioRef}
+          src={url}
+          preload="auto"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => { setPlaying(false); setProgress(0) }}
+          onTimeUpdate={(e) => {
+            const a = e.currentTarget
+            if (a.duration) setProgress((a.currentTime / a.duration) * 100)
+          }}
+        />
+      )}
 
       <div className="w-full bg-content3 rounded-full h-2 mb-3 cursor-pointer"
         onClick={(e) => {
