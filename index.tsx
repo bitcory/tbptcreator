@@ -1173,6 +1173,10 @@ const Stage2Content = ({
 
 const ImageDropZone = ({ onImage }: { onImage: (dataUrl: string) => void }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const dragCounter = React.useRef(0);
+  const zoneRef = React.useRef<HTMLDivElement>(null);
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
@@ -1181,8 +1185,24 @@ const ImageDropZone = ({ onImage }: { onImage: (dataUrl: string) => void }) => {
     reader.readAsDataURL(file);
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleFile(file);
+        return;
+      }
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleFile(file);
@@ -1190,39 +1210,74 @@ const ImageDropZone = ({ onImage }: { onImage: (dataUrl: string) => void }) => {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
     setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setIsDragging(false);
+    }
   };
 
   return (
-    <label
-      className={`flex flex-col items-center justify-center w-full h-32 border-3 border-dashed rounded-lg cursor-pointer transition-all ${
+    <div
+      ref={zoneRef}
+      tabIndex={0}
+      className={`flex flex-col items-center justify-center w-full h-32 border-3 border-dashed rounded-lg transition-all outline-none select-none ${
         isDragging
           ? 'border-primary bg-primary/10'
-          : 'border-foreground/30 hover:border-foreground/50 hover:bg-foreground/5'
+          : isFocused
+            ? 'border-primary/60 bg-primary/5 ring-2 ring-primary/30'
+            : 'border-foreground/30 hover:border-foreground/50 hover:bg-foreground/5'
       }`}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPaste={handlePaste}
+      onFocus={() => setIsFocused(true)}
+      onBlur={(e) => { if (!zoneRef.current?.contains(e.relatedTarget as Node)) setIsFocused(false); }}
     >
-      <ImagePlus className={`w-8 h-8 mb-1 ${isDragging ? 'text-primary' : 'text-foreground/30'}`} />
-      <span className={`text-[10px] ${isDragging ? 'text-primary font-bold' : 'text-foreground/40'}`}>
-        {isDragging ? '여기에 놓으세요' : '클릭 또는 드래그하여 업로드'}
-      </span>
-      <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+      {isDragging ? (
+        <>
+          <ImagePlus className="w-8 h-8 mb-1 text-primary pointer-events-none" />
+          <span className="text-[10px] text-primary font-bold pointer-events-none">여기에 놓으세요</span>
+        </>
+      ) : isFocused ? (
+        <>
+          <ClipboardPaste className="w-6 h-6 mb-1.5 text-primary/60 pointer-events-none" />
+          <span className="text-[10px] text-primary/70 font-medium pointer-events-none mb-1.5">Ctrl+V 붙여넣기 대기 중...</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+            className="neo-btn px-2.5 py-1 rounded-md text-[10px] font-bold flex items-center gap-1"
+          >
+            <Upload className="w-3 h-3" />
+            파일 업로드
+          </button>
+        </>
+      ) : (
+        <>
+          <ImagePlus className="w-8 h-8 mb-1 text-foreground/30 pointer-events-none" />
+          <span className="text-[10px] text-foreground/40 pointer-events-none">클릭하여 선택 · 드래그 · 붙여넣기</span>
+        </>
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
         const file = e.target.files?.[0];
         if (file) handleFile(file);
       }} />
-    </label>
+    </div>
   );
 };
 
@@ -1239,12 +1294,49 @@ const ConceptArtContent = ({
 }) => {
   const [activeTab, setActiveTab] = useState<ConceptArtTab>('characters');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const restoreInputRef = React.useRef<HTMLInputElement>(null);
 
   const copyText = (text: string, key: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 2000);
     });
+  };
+
+  const handleBackup = () => {
+    const json = JSON.stringify(conceptArtData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conceptart-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (data && (data.characters || data.environments || data.products || data.group_shots)) {
+          setConceptArtData({
+            characters: data.characters || [],
+            environments: data.environments || [],
+            products: data.products || [],
+            group_shots: data.group_shots || [],
+          });
+        } else {
+          alert('유효하지 않은 컨셉아트 백업 파일입니다.');
+        }
+      } catch {
+        alert('JSON 파일을 파싱할 수 없습니다.');
+      }
+    };
+    reader.readAsText(file);
+    if (restoreInputRef.current) restoreInputRef.current.value = '';
   };
 
   const updateCharImage = (charIdx: number, imgIdx: number, dataUrl: string | undefined) => {
@@ -1360,6 +1452,17 @@ const ConceptArtContent = ({
         <div className="flex items-center gap-3 mb-3">
           <Palette className="w-5 h-5 text-primary" />
           <h3 className="text-base md:text-lg font-black text-foreground uppercase">컨셉아트</h3>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={handleBackup} className="neo-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5" title="백업 (JSON 다운로드)">
+              <Download className="w-3.5 h-3.5" />
+              백업
+            </button>
+            <button onClick={() => restoreInputRef.current?.click()} className="neo-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5" title="복원 (JSON 업로드)">
+              <Upload className="w-3.5 h-3.5" />
+              복원
+            </button>
+            <input ref={restoreInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleRestore} />
+          </div>
         </div>
         <div className="flex gap-2">
           {tabs.map(tab => (
