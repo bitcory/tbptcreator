@@ -6008,7 +6008,6 @@ const App = () => {
                           : 'text-foreground/60 hover:bg-content2 border-3 border-foreground/20 hover:border-foreground/40'
                       }`}
                     >
-                      {currentStage === 'stage1' && <div className="w-1.5 h-4 rounded-full bg-primary-foreground" />}
                       1단계
                     </button>
                     <button
@@ -6019,7 +6018,6 @@ const App = () => {
                           : 'text-foreground/60 hover:bg-content2 border-3 border-foreground/20 hover:border-foreground/40'
                       }`}
                     >
-                      {currentStage === 'storyboard' && <div className="w-1.5 h-4 rounded-full bg-warning-foreground" />}
                       2단계
                     </button>
                     <button
@@ -6030,32 +6028,41 @@ const App = () => {
                           : 'text-foreground/60 hover:bg-content2 border-3 border-foreground/20 hover:border-foreground/40'
                       }`}
                     >
-                      {currentStage === 'stage2' && <div className="w-1.5 h-4 rounded-full bg-secondary-foreground" />}
                       단편영화
                     </button>
                   </div>
                   {(currentStage === 'stage1' || currentStage === 'stage2' || currentStage === 'storyboard') && (
-                    <a
-                      href={currentStage === 'stage1'
-                        ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
-                        : currentStage === 'storyboard'
-                        ? "https://gemini.google.com/gem/1iYuCK_8NICPr2WZAw8Eggsy1_dT2lHhm?usp=sharing"
-                        : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`group neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 ${
-                        currentStage === 'stage1'
-                          ? 'neo-btn-primary hover:shadow-neo-sm'
+                    <div className={`flex gap-1.5 ${currentStage === 'storyboard' ? '' : ''}`}>
+                      <a
+                        href={currentStage === 'stage1'
+                          ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
                           : currentStage === 'storyboard'
-                          ? 'neo-btn-warning hover:shadow-neo-sm'
-                          : 'neo-btn-secondary hover:shadow-neo-sm'
-                      }`}
-                    >
-                      <Wand2 className="w-3.5 h-3.5 transition-transform group-hover:rotate-12" />
-                      <span>{currentStage === 'stage1' ? '1단계' : currentStage === 'storyboard' ? '2단계' : '단편영화'} 젬 가이드</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                          ? "https://gemini.google.com/gem/1iYuCK_8NICPr2WZAw8Eggsy1_dT2lHhm?usp=sharing"
+                          : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`group neo-btn flex items-center justify-center gap-2 flex-1 px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 ${
+                          currentStage === 'stage1'
+                            ? 'neo-btn-primary hover:shadow-neo-sm'
+                            : currentStage === 'storyboard'
+                            ? 'neo-btn-warning hover:shadow-neo-sm'
+                            : 'neo-btn-secondary hover:shadow-neo-sm'
+                        }`}
+                      >
+                        <span>{currentStage === 'stage1' ? '1단계' : currentStage === 'storyboard' ? '2단계' : '단편영화'} 젬 가이드</span>
+                      </a>
+                      {currentStage === 'storyboard' && (
+                        <a
+                          href="https://gemini.google.com/gem/1Wy6XhDIfeb1rO9AiYYDMdc6-wDoixF60?usp=sharing"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group neo-btn neo-btn-danger flex items-center justify-center gap-2 flex-1 px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 hover:shadow-neo-sm"
+                        >
+                          <span>음악만들기</span>
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
