@@ -51,6 +51,7 @@ import {
   EyeOff,
   Mic,
   Film as FilmIcon,
+  Clapperboard,
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import { stemSeparator, type StemProgress } from './src/audio/StemSeparator';
@@ -187,7 +188,63 @@ interface ConceptArtData {
 
 type ConceptArtTab = 'characters' | 'environments' | 'products';
 
-type Stage = 'stage1' | 'stage2' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
+interface StoryboardSceneCamera {
+  shot_type: string;
+  angle: string;
+  movement: string;
+  lighting: string;
+  transition: string;
+}
+
+interface StoryboardImagePrompt {
+  id: string;
+  tool: string;
+  prompt: string;
+}
+
+interface StoryboardVideoPrompt {
+  id: string;
+  tool: string;
+  duration: number;
+  motion_type: string;
+  prompt: string;
+}
+
+interface StoryboardScene {
+  id: string;
+  scene_number: number;
+  act: string;
+  title: string;
+  description: string;
+  emotion: string;
+  key_visual: string;
+  camera: StoryboardSceneCamera;
+  prompts: {
+    image: StoryboardImagePrompt;
+    video: StoryboardVideoPrompt;
+  };
+}
+
+interface StoryboardMeta {
+  aspect_ratio: string;
+  total_scenes: number;
+  style: string;
+  character_base: string;
+  color_palette: string[];
+  mood: string;
+  reference_analysis: Record<string, string>;
+}
+
+interface StoryboardData {
+  id: string;
+  title: string;
+  created_at?: string;
+  version?: string;
+  meta: StoryboardMeta;
+  scenes: StoryboardScene[];
+}
+
+type Stage = 'stage1' | 'stage2' | 'storyboard' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
 type Stage2SubPage = 'concept' | 'image' | 'video';
 
 interface ExtractedFrame {
@@ -1163,6 +1220,272 @@ const Stage2Content = ({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+};
+
+
+// --- Storyboard Content Component ---
+
+const StoryboardContent = ({
+  storyboardData,
+  setStoryboardData,
+  onUpload,
+  tabColors,
+}: {
+  storyboardData: StoryboardData | null;
+  setStoryboardData: React.Dispatch<React.SetStateAction<StoryboardData | null>>;
+  onUpload: () => void;
+  tabColors: { bg: string; border: string; dot: string; text: string }[];
+}) => {
+  const [activeAct, setActiveAct] = useState(0);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+
+  const acts = ['도입', '전개', '절정', '결말'];
+
+  const copyText = (text: string, key?: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      if (key !== undefined) {
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 2000);
+      } else {
+        setCopiedAll(true);
+        setTimeout(() => setCopiedAll(false), 2000);
+      }
+    });
+  };
+
+  const updateImagePrompt = (sceneId: string, newPrompt: string) => {
+    if (!storyboardData) return;
+    setStoryboardData({
+      ...storyboardData,
+      scenes: storyboardData.scenes.map(s =>
+        s.id === sceneId ? { ...s, prompts: { ...s.prompts, image: { ...s.prompts.image, prompt: newPrompt } } } : s
+      ),
+    });
+  };
+
+  const updateVideoPrompt = (sceneId: string, newPrompt: string) => {
+    if (!storyboardData) return;
+    setStoryboardData({
+      ...storyboardData,
+      scenes: storyboardData.scenes.map(s =>
+        s.id === sceneId ? { ...s, prompts: { ...s.prompts, video: { ...s.prompts.video, prompt: newPrompt } } } : s
+      ),
+    });
+  };
+
+  if (!storyboardData) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+            <Clapperboard className="w-10 h-10 text-foreground/50" />
+          </div>
+          <p className="text-lg font-bold text-foreground/70 mb-2">스토리보드가 없습니다</p>
+          <p className="text-sm text-foreground/50 mb-5">스토리보드 JSON을 업로드하여 이미지/영상 프롬프트를 확인하세요.</p>
+          <button
+            onClick={onUpload}
+            className="neo-btn neo-btn-primary px-5 py-2.5 rounded-lg flex items-center gap-2 mx-auto text-sm font-medium"
+          >
+            <Upload className="w-4 h-4" />
+            스토리보드 JSON 업로드
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const scenesByAct = acts.map(act =>
+    storyboardData.scenes.filter(s => s.act === act)
+  );
+
+  const allImagePrompts = storyboardData.scenes.map(s => s.prompts.image.prompt).join('\n\n');
+  const allVideoPrompts = storyboardData.scenes.map(s => s.prompts.video.prompt).join('\n\n');
+
+  return (
+    <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
+      {/* Meta Info Panel */}
+      <div className="shrink-0 neo-card-static rounded-xl p-3 md:p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clapperboard className="w-5 h-5 text-secondary" />
+              <h3 className="text-base md:text-lg font-black text-foreground uppercase truncate">{storyboardData.title}</h3>
+              <span className="memphis-badge text-xs">{storyboardData.meta.total_scenes}씬</span>
+              <span className="memphis-badge-secondary text-xs">{storyboardData.meta.aspect_ratio}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => copyText(allImagePrompts)}
+                className="neo-btn text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              >
+                <ImageIcon className="w-3 h-3" />
+                {copiedAll ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                {copiedAll ? '복사됨' : '이미지 전체'}
+              </button>
+              <button
+                onClick={() => copyText(allVideoPrompts)}
+                className="neo-btn text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              >
+                <Film className="w-3 h-3" />
+                <Copy className="w-3 h-3" />
+                영상 전체
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 md:gap-3 items-start">
+            {storyboardData.meta.color_palette && storyboardData.meta.color_palette.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-danger/10 border-2 border-foreground/20">
+                <Palette className="w-3.5 h-3.5 text-danger" />
+                <span className="text-foreground/60 font-bold">팔레트</span>
+                <div className="flex items-center gap-1">
+                  {storyboardData.meta.color_palette.map((c, i) => (
+                    <span key={i} className="w-4 h-4 rounded border border-foreground/30" style={{ background: c }} title={c} />
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-content3 border-2 border-foreground/20">
+              <span className="text-foreground/60 font-bold">무드</span>
+              <span className="text-foreground/80">{storyboardData.meta.mood}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Act Tabs + Scene Cards */}
+      <div className="flex-1 neo-card-static rounded-xl overflow-hidden min-h-0 flex flex-col">
+        {/* Act Tab Bar */}
+        <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-content2 border-b-3 border-foreground overflow-x-auto">
+          {acts.map((act, idx) => {
+            const tc = tabColors[idx % 4];
+            const isActive = activeAct === idx;
+            const sceneCount = scenesByAct[idx].length;
+            return (
+              <button
+                key={act}
+                onClick={() => setActiveAct(idx)}
+                className={`relative flex-1 px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg ${
+                  isActive
+                    ? 'border-3 border-foreground shadow-neo-sm'
+                    : 'border-3 border-transparent hover:bg-foreground/5'
+                }`}
+                style={{
+                  background: isActive ? tc.bg : 'transparent',
+                  color: tc.text,
+                }}
+              >
+                <span
+                  className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shrink-0 transition-all"
+                  style={{ backgroundColor: tc.dot, opacity: isActive ? 1 : 0.3 }}
+                />
+                <span>{act}</span>
+                {sceneCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-foreground/10">{sceneCount}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Scene Cards */}
+        <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-5">
+          {scenesByAct[activeAct].length === 0 ? (
+            <div className="text-center py-10 text-foreground/50 text-sm">이 구간에 해당하는 씬이 없습니다.</div>
+          ) : (
+            scenesByAct[activeAct].map((scene) => {
+              const tc = tabColors[activeAct % 4];
+              return (
+                <div key={scene.id} id={`storyboard-scene-${scene.id}`} className="neo-card-static rounded-xl overflow-hidden" style={{ '--card-index': scene.scene_number } as any}>
+                  {/* Scene Header */}
+                  <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground flex items-center justify-between" style={{ background: tc.bg }}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">
+                        #{String(scene.scene_number).padStart(2, '0')}
+                      </span>
+                      <span className="text-sm md:text-base font-bold text-foreground">{scene.title}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{scene.camera.shot_type}</span>
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{scene.camera.movement}</span>
+                    </div>
+                  </div>
+
+                  {/* Scene Info */}
+                  <div className="p-3 md:p-4 border-b-2 border-foreground/15 space-y-2" style={{ background: tc.bg, opacity: 0.7 }}>
+                    <p className="text-sm text-foreground/90 leading-relaxed">{scene.description}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border border-foreground/20 bg-content1">
+                        감정: {scene.emotion}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border border-foreground/20 bg-content1">
+                        핵심: {scene.key_visual}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border border-foreground/20 bg-content1">
+                        조명: {scene.camera.lighting?.slice(0, 40)}{scene.camera.lighting?.length > 40 ? '...' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Left: Image Prompt / Right: Video Prompt */}
+                  <div className="flex flex-col md:flex-row">
+                    {/* Image Prompt (Left) */}
+                    <div className="w-full md:w-1/2 p-3 md:p-4 md:border-r-3 border-b-3 md:border-b-0 border-foreground/15">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-[10px] uppercase tracking-wider text-foreground/50 font-bold">이미지 프롬프트</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">{scene.prompts.image.tool}</span>
+                        </div>
+                        <button
+                          onClick={() => copyText(scene.prompts.image.prompt, `${scene.id}-img`)}
+                          className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"
+                        >
+                          {copiedKey === `${scene.id}-img` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                          {copiedKey === `${scene.id}-img` ? '복사됨' : '복사'}
+                        </button>
+                      </div>
+                      <textarea
+                        value={scene.prompts.image.prompt}
+                        onChange={(e) => updateImagePrompt(scene.id, e.target.value)}
+                        className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2.5 resize-y min-h-[100px]"
+                        rows={5}
+                      />
+                    </div>
+
+                    {/* Video Prompt (Right) */}
+                    <div className="w-full md:w-1/2 p-3 md:p-4 bg-content2">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <Film className="w-3.5 h-3.5 text-danger" />
+                          <span className="text-[10px] uppercase tracking-wider text-foreground/50 font-bold">영상 프롬프트</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-danger/10 text-danger font-bold">{scene.prompts.video.tool} · {scene.prompts.video.duration}s</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-secondary/10 text-secondary font-bold">{scene.prompts.video.motion_type}</span>
+                        </div>
+                        <button
+                          onClick={() => copyText(scene.prompts.video.prompt, `${scene.id}-vid`)}
+                          className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"
+                        >
+                          {copiedKey === `${scene.id}-vid` ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
+                          {copiedKey === `${scene.id}-vid` ? '복사됨' : '복사'}
+                        </button>
+                      </div>
+                      <textarea
+                        value={scene.prompts.video.prompt}
+                        onChange={(e) => updateVideoPrompt(scene.id, e.target.value)}
+                        className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2.5 resize-y min-h-[100px]"
+                        rows={5}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );
@@ -5374,6 +5697,102 @@ const App = () => {
     }
   };
 
+  const handleStoryboardUpload = () => {
+    setStoryboardUploadError(null);
+
+    let cleanedInput = storyboardUploadInput.trim();
+    cleanedInput = cleanedInput
+      .replace(/^```(?:json|JSON)?\s*\n?/gm, '')
+      .replace(/\n?```\s*$/gm, '')
+      .trim();
+
+    try {
+      if (!cleanedInput) throw new Error('JSON 내용을 입력해주세요.');
+
+      let json;
+      try {
+        json = JSON.parse(cleanedInput);
+      } catch (parseErr: any) {
+        throw new Error(`JSON 파싱 오류: ${parseErr.message}`);
+      }
+
+      // Handle wrapped format: { "storyboard": { ... } }
+      if (json.storyboard && typeof json.storyboard === 'object') {
+        json = json.storyboard;
+      }
+
+      // Validate required fields
+      if (!json.scenes || !Array.isArray(json.scenes)) {
+        throw new Error('"scenes" 배열이 필요합니다.');
+      }
+
+      const meta = json.meta || {};
+      const scenes: StoryboardScene[] = [];
+
+      for (let i = 0; i < json.scenes.length; i++) {
+        const s = json.scenes[i];
+        if (!s.id) throw new Error(`씬 ${i + 1}: "id" 필드가 누락되었습니다.`);
+        if (!s.prompts?.image?.prompt) throw new Error(`씬 ${s.id}: 이미지 프롬프트가 누락되었습니다.`);
+        if (!s.prompts?.video?.prompt) throw new Error(`씬 ${s.id}: 영상 프롬프트가 누락되었습니다.`);
+
+        scenes.push({
+          id: s.id,
+          scene_number: s.scene_number || (i + 1),
+          act: s.act || '전개',
+          title: s.title || '',
+          description: s.description || '',
+          emotion: s.emotion || '',
+          key_visual: s.key_visual || '',
+          camera: {
+            shot_type: s.camera?.shot_type || '',
+            angle: s.camera?.angle || '',
+            movement: s.camera?.movement || '',
+            lighting: s.camera?.lighting || '',
+            transition: s.camera?.transition || '',
+          },
+          prompts: {
+            image: {
+              id: s.prompts.image.id || `img_${String(i + 1).padStart(2, '0')}`,
+              tool: s.prompts.image.tool || 'grok_imagine',
+              prompt: s.prompts.image.prompt,
+            },
+            video: {
+              id: s.prompts.video.id || `vid_${String(i + 1).padStart(2, '0')}`,
+              tool: s.prompts.video.tool || 'grok_video',
+              duration: s.prompts.video.duration || 6,
+              motion_type: s.prompts.video.motion_type || '',
+              prompt: s.prompts.video.prompt,
+            },
+          },
+        });
+      }
+
+      const storyboard: StoryboardData = {
+        id: json.id || `SB-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)}`,
+        title: json.title || '스토리보드',
+        created_at: json.created_at,
+        version: json.version,
+        meta: {
+          aspect_ratio: meta.aspect_ratio || '16:9',
+          total_scenes: scenes.length,
+          style: meta.style || '',
+          character_base: meta.character_base || '',
+          color_palette: Array.isArray(meta.color_palette) ? meta.color_palette : [],
+          mood: meta.mood || '',
+          reference_analysis: meta.reference_analysis || {},
+        },
+        scenes,
+      };
+
+      setStoryboardData(storyboard);
+      setIsStoryboardUploadOpen(false);
+      setStoryboardUploadInput('');
+      setIsSidebarOpen(false);
+    } catch (e: any) {
+      setStoryboardUploadError(e.message || 'JSON 파싱 오류가 발생했습니다.');
+    }
+  };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isImageGenOpen, setIsImageGenOpen] = useState(false);
 
@@ -5388,6 +5807,12 @@ const App = () => {
   const [stage2UploadError, setStage2UploadError] = useState<string | null>(null);
   const [conceptArtData, setConceptArtData] = useState<ConceptArtData>({ characters: [], environments: [], products: [], group_shots: [] });
 
+  // Storyboard state
+  const [storyboardData, setStoryboardData] = useState<StoryboardData | null>(null);
+  const [isStoryboardUploadOpen, setIsStoryboardUploadOpen] = useState(false);
+  const [storyboardUploadInput, setStoryboardUploadInput] = useState('');
+  const [storyboardUploadError, setStoryboardUploadError] = useState<string | null>(null);
+
   // Load Stage2 data from localStorage
   useEffect(() => {
     try {
@@ -5401,6 +5826,10 @@ const App = () => {
     try {
       const ca = localStorage.getItem('conceptArtData');
       if (ca) setConceptArtData(JSON.parse(ca));
+    } catch {}
+    try {
+      const sb = localStorage.getItem('storyboardData');
+      if (sb) setStoryboardData(JSON.parse(sb));
     } catch {}
   }, []);
 
@@ -5437,6 +5866,16 @@ const App = () => {
       localStorage.removeItem('conceptArtData');
     }
   }, [conceptArtData]);
+
+  useEffect(() => {
+    if (storyboardData) {
+      try {
+        localStorage.setItem('storyboardData', JSON.stringify(storyboardData));
+      } catch {}
+    } else {
+      localStorage.removeItem('storyboardData');
+    }
+  }, [storyboardData]);
 
   // Tab accent colors for neobrutalism theme
   const tabColors = [
@@ -5494,6 +5933,20 @@ const App = () => {
              <span className="hidden sm:inline">템플릿</span> 업로드
            </button>
           )}
+          {currentStage === 'storyboard' && (
+           <button
+             onClick={() => {
+               setStoryboardUploadError(null);
+               setStoryboardUploadInput('');
+               setIsStoryboardUploadOpen(true);
+             }}
+             className="neo-btn neo-btn-warning flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+             title="스토리보드 JSON 업로드"
+           >
+             <Upload className="w-4 h-4" />
+             <span className="hidden sm:inline">스토리보드</span> 업로드
+           </button>
+          )}
         </div>
       </header>
 
@@ -5522,7 +5975,7 @@ const App = () => {
               onClick={() => {
                 if (!isImageGenOpen) {
                   setIsImageGenOpen(true);
-                  if (currentStage !== 'stage1' && currentStage !== 'stage2') {
+                  if (currentStage !== 'stage1' && currentStage !== 'stage2' && currentStage !== 'storyboard') {
                     setCurrentStage('stage1');
                   }
                 } else {
@@ -5530,7 +5983,7 @@ const App = () => {
                 }
               }}
               className={`neo-btn flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
-                (currentStage === 'stage1' || currentStage === 'stage2')
+                (currentStage === 'stage1' || currentStage === 'stage2' || currentStage === 'storyboard')
                   ? 'bg-content3 border-3 border-foreground shadow-neo-sm'
                   : 'border-3 border-foreground/30 hover:border-foreground/60'
               }`}
@@ -5559,6 +6012,17 @@ const App = () => {
                       1단계
                     </button>
                     <button
+                      onClick={() => setCurrentStage('storyboard')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                        currentStage === 'storyboard'
+                          ? 'bg-warning text-warning-foreground border-3 border-foreground shadow-neo-sm'
+                          : 'text-foreground/60 hover:bg-content2 border-3 border-foreground/20 hover:border-foreground/40'
+                      }`}
+                    >
+                      {currentStage === 'storyboard' && <div className="w-1.5 h-4 rounded-full bg-warning-foreground" />}
+                      2단계
+                    </button>
+                    <button
                       onClick={() => setCurrentStage('stage2')}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs md:text-sm font-bold transition-all ${
                         currentStage === 'stage2'
@@ -5567,13 +6031,15 @@ const App = () => {
                       }`}
                     >
                       {currentStage === 'stage2' && <div className="w-1.5 h-4 rounded-full bg-secondary-foreground" />}
-                      2단계
+                      단편영화
                     </button>
                   </div>
-                  {(currentStage === 'stage1' || currentStage === 'stage2') && (
+                  {(currentStage === 'stage1' || currentStage === 'stage2' || currentStage === 'storyboard') && (
                     <a
                       href={currentStage === 'stage1'
                         ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
+                        : currentStage === 'storyboard'
+                        ? "https://gemini.google.com/gem/1iYuCK_8NICPr2WZAw8Eggsy1_dT2lHhm?usp=sharing"
                         : "https://gemini.google.com/gem/1CdSxrlLl-Et1lUzFrBAUwVKhcwPJ4ZOl?usp=sharing"
                       }
                       target="_blank"
@@ -5581,11 +6047,13 @@ const App = () => {
                       className={`group neo-btn flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 ${
                         currentStage === 'stage1'
                           ? 'neo-btn-primary hover:shadow-neo-sm'
+                          : currentStage === 'storyboard'
+                          ? 'neo-btn-warning hover:shadow-neo-sm'
                           : 'neo-btn-secondary hover:shadow-neo-sm'
                       }`}
                     >
                       <Wand2 className="w-3.5 h-3.5 transition-transform group-hover:rotate-12" />
-                      <span>{currentStage === 'stage1' ? '1단계' : '2단계'} 젬 가이드</span>
+                      <span>{currentStage === 'stage1' ? '1단계' : currentStage === 'storyboard' ? '2단계' : '단편영화'} 젬 가이드</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -5721,6 +6189,81 @@ const App = () => {
                       </span>
                     )}
                   </button>
+                </div>
+              )}
+
+              {/* Storyboard Sidebar Content */}
+              {currentStage === 'storyboard' && (
+                <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2.5">
+                  {storyboardData ? (
+                    <>
+                      <div className="neo-card-static rounded-xl p-3 md:p-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Clapperboard className="w-5 h-5 text-warning" />
+                          <h3 className="text-sm font-black text-foreground uppercase truncate">{storyboardData.title}</h3>
+                        </div>
+                        <div className="space-y-1 text-xs text-foreground/60">
+                          <p><span className="font-bold text-foreground/80">비율:</span> {storyboardData.meta.aspect_ratio}</p>
+                          <p><span className="font-bold text-foreground/80">무드:</span> {storyboardData.meta.mood}</p>
+                          {storyboardData.meta.color_palette.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="font-bold text-foreground/80">팔레트:</span>
+                              {storyboardData.meta.color_palette.map((c, i) => (
+                                <span key={i} className="w-4 h-4 rounded border border-foreground/30 inline-block" style={{ background: c }} title={c} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="neo-card-static rounded-xl overflow-hidden">
+                        <div className="px-3 py-2 border-b-2 border-foreground/20 bg-content2">
+                          <h4 className="text-xs font-bold text-foreground/80 uppercase flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-secondary" />
+                            씬 목록 ({storyboardData.scenes.length}개)
+                          </h4>
+                        </div>
+                        <div className="p-2 space-y-1 max-h-[40vh] overflow-y-auto">
+                          {storyboardData.scenes.map((scene) => (
+                            <div
+                              key={scene.id}
+                              onClick={() => {
+                                const el = document.getElementById(`storyboard-scene-${scene.id}`);
+                                if (el) {
+                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  el.classList.add('ring-2', 'ring-warning/50');
+                                  setTimeout(() => el.classList.remove('ring-2', 'ring-warning/50'), 2000);
+                                }
+                                setIsSidebarOpen(false);
+                              }}
+                              className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-foreground/70 hover:bg-foreground/5 hover:text-foreground cursor-pointer transition-colors font-medium"
+                            >
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-foreground/10 shrink-0">#{String(scene.scene_number).padStart(2, '0')}</span>
+                              <span className="truncate flex-1">{scene.title}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-warning/15 text-warning shrink-0">{scene.act}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-10 px-4 text-foreground/60 text-sm">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center neo-card-static">
+                        <Clapperboard className="w-8 h-8 text-foreground/60" />
+                      </div>
+                      <p className="font-medium">스토리보드가 없습니다.</p>
+                      <button
+                        onClick={() => {
+                          setStoryboardUploadError(null);
+                          setStoryboardUploadInput('');
+                          setIsStoryboardUploadOpen(true);
+                        }}
+                        className="mt-3 neo-btn neo-btn-warning px-4 py-2 rounded-lg flex items-center justify-center gap-1 mx-auto text-sm"
+                      >
+                        <Play className="w-3 h-3" />
+                        JSON 업로드 시작
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -6200,8 +6743,20 @@ const App = () => {
               </div>
             </div>
             </div>
+          ) : currentStage === 'storyboard' ? (
+          /* Storyboard: Image/Video Side by Side */
+          <StoryboardContent
+            storyboardData={storyboardData}
+            setStoryboardData={setStoryboardData}
+            onUpload={() => {
+              setStoryboardUploadError(null);
+              setStoryboardUploadInput('');
+              setIsStoryboardUploadOpen(true);
+            }}
+            tabColors={tabColors}
+          />
           ) : stage2SubPage === 'concept' ? (
-          /* Stage 2: Concept Art Viewer */
+          /* Stage 2 (단편영화): Concept Art Viewer */
           <ConceptArtContent
             conceptArtData={conceptArtData}
             setConceptArtData={setConceptArtData}
@@ -6342,6 +6897,69 @@ const App = () => {
                 onClick={handleStage2Upload}
                 disabled={!stage2UploadInput.trim()}
                 className="neo-btn neo-btn-primary px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
+              >
+                <Upload className="w-4 h-4" />
+                적용
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Storyboard Upload Modal */}
+      {isStoryboardUploadOpen && (
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="neo-card-static rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] animate-scale-in">
+            <div className="p-3 md:p-5 border-b-3 border-foreground flex items-center justify-between shrink-0">
+              <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
+                <Clapperboard className="w-5 h-5 text-warning" />
+                스토리보드 JSON 불러오기
+              </h3>
+              <button
+                onClick={() => setIsStoryboardUploadOpen(false)}
+                className="neo-btn neo-btn-danger p-1.5 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 md:p-6 flex-1 overflow-hidden flex flex-col">
+              {storyboardUploadError && (
+                <div className="mb-3 md:mb-4 p-2.5 md:p-3 rounded-xl flex items-start gap-2 md:gap-3 text-xs md:text-sm shrink-0 bg-danger/10 border-2 border-foreground">
+                  <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-danger shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-danger">오류 발생</p>
+                    <p className="text-foreground/80">{storyboardUploadError}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-3 p-2.5 rounded-lg text-xs text-foreground/60 shrink-0 bg-content2 border-2 border-foreground/20 space-y-1">
+                <p className="font-bold text-foreground/80">스토리보드 JSON 형식:</p>
+                <p>{"{"} "storyboard": {"{"} "id": "SB-...", "title": "...", "meta": {"{"} ... {"}"}, "scenes": [ {"{"} "id": "scene_01", "prompts": {"{"} "image": {"{"} ... {"}"}, "video": {"{"} ... {"}"} {"}"} {"}"} ] {"}"} {"}"}</p>
+                <p className="font-bold text-foreground/80 mt-1">또는 직접 형식:</p>
+                <p>{"{"} "id": "SB-...", "title": "...", "meta": {"{"} ... {"}"}, "scenes": [...] {"}"}</p>
+              </div>
+
+              <textarea
+                value={storyboardUploadInput}
+                onChange={(e) => setStoryboardUploadInput(e.target.value)}
+                placeholder='{"storyboard": {"id": "SB-...", "title": "...", "meta": {...}, "scenes": [...]}}'
+                className="memphis-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
+              />
+            </div>
+
+            <div className="p-3 md:p-5 border-t-3 border-foreground flex justify-end gap-2 md:gap-3 shrink-0">
+              <button
+                onClick={() => setIsStoryboardUploadOpen(false)}
+                className="neo-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleStoryboardUpload}
+                disabled={!storyboardUploadInput.trim()}
+                className="neo-btn neo-btn-warning px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30"
               >
                 <Upload className="w-4 h-4" />
                 적용
