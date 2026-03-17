@@ -1072,7 +1072,26 @@ const Stage2Content = ({
     );
   }
 
-  const allPromptsText = prompts.map(p => p.prompt).join('\n\n');
+  const allPromptsText = (() => {
+    if (subPage === 'image') {
+      const n = prompts.length;
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      const header = `[GRID INSTRUCTION]
+Create a ${cols}×${rows} seamless grid image (${cols} columns, ${rows} rows).
+Each panel represents one scene from a story, reading left-to-right, top-to-bottom (Panel 1 = top-left → Panel ${n} = bottom-right).
+Maintain perfect consistency: same character face, body, hairstyle, costume, and art style across all ${n} panels.
+No visible borders, gaps, or dividing lines between panels.
+Each panel flows naturally into the next like a cinematic storyboard.
+Uniform lighting temperature and color grading across all panels.
+
+[Reference image: character design and style guide]
+
+`;
+      return header + prompts.map((p, i) => `Panel ${i + 1}: ${p.prompt}`).join('\n');
+    }
+    return prompts.map(p => p.prompt).join('\n\n');
+  })();
 
   return (
     <div className="flex-1 flex flex-col min-h-0 p-3 md:p-6 gap-4">
@@ -1302,7 +1321,26 @@ const StoryboardContent = ({
     storyboardData.scenes.filter(s => s.act === act)
   );
 
-  const allImagePrompts = storyboardData.scenes.map(s => s.prompts.image.prompt).join('\n\n');
+  const buildGridText = (prompts: string[]) => {
+    const n = prompts.length;
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const header = `[GRID INSTRUCTION]
+Create a ${cols}×${rows} seamless grid image (${cols} columns, ${rows} rows).
+Each panel represents one scene from a story, reading left-to-right, top-to-bottom (Panel 1 = top-left → Panel ${n} = bottom-right).
+Maintain perfect consistency: same character face, body, hairstyle, costume, and art style across all ${n} panels.
+No visible borders, gaps, or dividing lines between panels.
+Each panel flows naturally into the next like a cinematic storyboard.
+Uniform lighting temperature and color grading across all panels.
+
+[Reference image: character design and style guide]
+
+`;
+    const panels = prompts.map((p, i) => `Panel ${i + 1}: ${p}`).join('\n');
+    return header + panels;
+  };
+
+  const allImagePrompts = buildGridText(storyboardData.scenes.map(s => s.prompts.image.prompt));
   const allVideoPrompts = storyboardData.scenes.map(s => s.prompts.video.prompt).join('\n\n');
 
   return (
