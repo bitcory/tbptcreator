@@ -229,7 +229,8 @@ interface StoryboardMeta {
   aspect_ratio: string;
   total_scenes: number;
   style: string;
-  character_base: string;
+  subject_type: string;
+  reference_instruction: string;
   color_palette: string[];
   mood: string;
   reference_analysis: Record<string, string>;
@@ -1390,6 +1391,18 @@ Uniform lighting temperature and color grading across all panels.
               <span className="text-foreground/60 font-bold">무드</span>
               <span className="text-foreground/80">{storyboardData.meta.mood}</span>
             </div>
+            {storyboardData.meta.subject_type && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-primary/10 border-2 border-foreground/20">
+                <span className="text-foreground/60 font-bold">피사체</span>
+                <span className="text-foreground/80">{storyboardData.meta.subject_type}</span>
+              </div>
+            )}
+            {storyboardData.meta.style && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-secondary/10 border-2 border-foreground/20 max-w-full">
+                <span className="text-foreground/60 font-bold shrink-0">스타일</span>
+                <span className="text-foreground/80 truncate">{storyboardData.meta.style}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -5767,6 +5780,82 @@ const App = () => {
       const meta = json.meta || {};
       const scenes: StoryboardScene[] = [];
 
+      // Normalize act values: English → Korean
+      const actMap: Record<string, string> = {
+        'introduction': '도입', 'intro': '도입', '도입': '도입',
+        'rising_action': '전개', 'development': '전개', '전개': '전개',
+        'climax': '절정', '절정': '절정',
+        'falling_action': '결말', 'conclusion': '결말', 'resolution': '결말', '결말': '결말',
+      };
+      const normalizeAct = (v: string): string => actMap[v?.toLowerCase?.()] || actMap[v] || '전개';
+
+      // Extract English value from "한글 (English)" format
+      const extractEnglish = (v: string): string => {
+        if (!v) return '';
+        const m = v.match(/\(([^)]+)\)/);
+        return m ? m[1].trim() : v;
+      };
+
+      // Normalize camera shot_type
+      const shotTypeMap: Record<string, string> = {
+        'extreme wide shot': 'extreme wide shot', 'wide shot': 'wide shot',
+        'medium-wide shot': 'medium-wide shot', 'medium wide shot': 'medium-wide shot',
+        'medium shot': 'medium shot', 'medium close-up': 'medium close-up',
+        'close-up': 'close-up', 'closeup': 'close-up',
+        'extreme close-up': 'extreme close-up', 'extreme closeup': 'extreme close-up',
+        'full shot': 'full shot', 'over-the-shoulder': 'over-the-shoulder',
+        'wide tracking': 'wide shot', 'extreme angle': 'extreme wide shot',
+        'medium angle': 'medium shot', 'top shot': 'extreme wide shot',
+        'top shot, overhead': 'extreme wide shot', 'overhead': 'extreme wide shot',
+      };
+      const normalizeShotType = (v: string): string => {
+        const eng = extractEnglish(v).toLowerCase();
+        return shotTypeMap[eng] || eng || v;
+      };
+
+      // Normalize camera angle
+      const angleMap: Record<string, string> = {
+        'eye level': 'eye-level', 'eye-level': 'eye-level',
+        'low angle': 'low angle', 'high angle': 'high angle',
+        'slightly low angle': 'slightly low angle', 'slightly high angle': 'slightly high angle',
+        'dutch angle': 'dutch angle', "bird's eye": "bird's eye", 'worm\'s eye': "worm's eye",
+      };
+      const normalizeAngle = (v: string): string => {
+        const eng = extractEnglish(v).toLowerCase();
+        return angleMap[eng] || eng || v;
+      };
+
+      // Normalize camera transition
+      const transitionMap: Record<string, string> = {
+        'fade in from black': 'fade in from black', 'cut': 'cut',
+        'dissolve': 'dissolve', 'slow dissolve': 'slow dissolve',
+        'fade to white': 'fade to white', 'fade to black': 'fade to black', 'wipe': 'wipe',
+      };
+      const normalizeTransition = (v: string): string => {
+        const eng = extractEnglish(v).toLowerCase();
+        return transitionMap[eng] || eng || v;
+      };
+
+      // v3.3: style은 meta 전용, 프롬프트에서 제거. reference_instruction은 image만, video에서 제거.
+      const styleText = (meta.style || '').trim();
+      const refInst = (meta.reference_instruction || '').trim();
+
+      const stripStyleAndRef = (prompt: string, keepRef: boolean): string => {
+        let p = prompt;
+        // style 텍스트 제거 (프롬프트 앞부분에 있을 경우)
+        if (styleText) {
+          // style 뒤에 오는 구분자(쉼표, 마침표, 줄바꿈)까지 함께 제거
+          const escaped = styleText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          p = p.replace(new RegExp('^\\s*' + escaped + '[.,;]?\\s*', 'i'), '').trim();
+        }
+        // reference_instruction 제거 (video인 경우)
+        if (!keepRef && refInst) {
+          const escaped = refInst.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          p = p.replace(new RegExp('\\s*' + escaped + '[.,;]?\\s*', 'i'), ' ').trim();
+        }
+        return p;
+      };
+
       for (let i = 0; i < json.scenes.length; i++) {
         const s = json.scenes[i];
         if (!s.id) throw new Error(`씬 ${i + 1}: "id" 필드가 누락되었습니다.`);
@@ -5776,30 +5865,30 @@ const App = () => {
         scenes.push({
           id: s.id,
           scene_number: s.scene_number || (i + 1),
-          act: s.act || '전개',
+          act: normalizeAct(s.act),
           title: s.title || '',
           description: s.description || '',
           emotion: s.emotion || '',
           key_visual: s.key_visual || '',
           camera: {
-            shot_type: s.camera?.shot_type || '',
-            angle: s.camera?.angle || '',
-            movement: s.camera?.movement || '',
-            lighting: s.camera?.lighting || '',
-            transition: s.camera?.transition || '',
+            shot_type: normalizeShotType(s.camera?.shot_type || ''),
+            angle: normalizeAngle(s.camera?.angle || ''),
+            movement: extractEnglish(s.camera?.movement || ''),
+            lighting: extractEnglish(s.camera?.lighting || ''),
+            transition: normalizeTransition(s.camera?.transition || ''),
           },
           prompts: {
             image: {
               id: s.prompts.image.id || `img_${String(i + 1).padStart(2, '0')}`,
               tool: s.prompts.image.tool || 'grok_imagine',
-              prompt: s.prompts.image.prompt,
+              prompt: stripStyleAndRef(s.prompts.image.prompt, true),
             },
             video: {
               id: s.prompts.video.id || `vid_${String(i + 1).padStart(2, '0')}`,
               tool: s.prompts.video.tool || 'grok_video',
               duration: s.prompts.video.duration || 6,
               motion_type: s.prompts.video.motion_type || '',
-              prompt: s.prompts.video.prompt,
+              prompt: stripStyleAndRef(s.prompts.video.prompt, false),
             },
           },
         });
@@ -5814,7 +5903,8 @@ const App = () => {
           aspect_ratio: meta.aspect_ratio || '16:9',
           total_scenes: scenes.length,
           style: meta.style || '',
-          character_base: meta.character_base || '',
+          subject_type: meta.subject_type || '',
+          reference_instruction: meta.reference_instruction || '',
           color_palette: Array.isArray(meta.color_palette) ? meta.color_palette : [],
           mood: meta.mood || '',
           reference_analysis: meta.reference_analysis || {},
@@ -6249,7 +6339,13 @@ const App = () => {
                         </div>
                         <div className="space-y-1 text-xs text-foreground/60">
                           <p><span className="font-bold text-foreground/80">비율:</span> {storyboardData.meta.aspect_ratio}</p>
+                          {storyboardData.meta.subject_type && (
+                            <p><span className="font-bold text-foreground/80">피사체:</span> {storyboardData.meta.subject_type}</p>
+                          )}
                           <p><span className="font-bold text-foreground/80">무드:</span> {storyboardData.meta.mood}</p>
+                          {storyboardData.meta.style && (
+                            <p className="truncate"><span className="font-bold text-foreground/80">스타일:</span> {storyboardData.meta.style}</p>
+                          )}
                           {storyboardData.meta.color_palette.length > 0 && (
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className="font-bold text-foreground/80">팔레트:</span>
