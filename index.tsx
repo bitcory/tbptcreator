@@ -6035,6 +6035,21 @@ const App = () => {
             </h1>
           </a>
         </div>
+        {/* 외부 바로가기 버튼 */}
+        <div className="flex items-center gap-1.5">
+          <a href="https://grok.com/" target="_blank" rel="noreferrer"
+            className="flex items-center justify-center h-8 w-16 md:h-9 md:w-20 rounded-lg text-xs md:text-sm font-black transition-all hover:opacity-80 border-2 border-foreground/40"
+            style={{ background: '#000', color: '#fff' }}>Grok</a>
+          <a href="https://kr.pinterest.com/" target="_blank" rel="noreferrer"
+            className="flex items-center justify-center h-8 w-16 md:h-9 md:w-20 rounded-lg text-xs md:text-sm font-black transition-all hover:opacity-80 border-2 border-foreground/40"
+            style={{ background: '#E60023', color: '#fff' }}>Pinterest</a>
+          <a href="https://suno.com/" target="_blank" rel="noreferrer"
+            className="flex items-center justify-center h-8 w-16 md:h-9 md:w-20 rounded-lg text-xs md:text-sm font-black transition-all hover:opacity-80 border-2 border-foreground/40"
+            style={{ background: '#F57C00', color: '#fff' }}>Suno</a>
+          <a href="https://splitter.aitoolb.com/" target="_blank" rel="noreferrer"
+            className="flex items-center justify-center h-8 w-16 md:h-9 md:w-20 rounded-lg text-xs md:text-sm font-black transition-all hover:opacity-80 border-2 border-foreground/40"
+            style={{ background: '#2563EB', color: '#fff' }}>Splitter</a>
+        </div>
         <div className="flex items-center gap-1 md:gap-2">
           {currentStage === 'stage1' && (
            <button
@@ -6468,17 +6483,6 @@ const App = () => {
               <span className="flex-1 text-left">음원분리기</span>
             </button>
 
-            {/* Grok 바로가기 */}
-            <a
-              href="https://grok.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all neo-btn border-3 border-foreground/30 hover:border-foreground/60"
-              title="새 탭에서 Grok 열기"
-            >
-              <ExternalLink className="w-4 h-4 text-primary" />
-              <span className="flex-1 text-left text-foreground/70">Grok 바로가기</span>
-            </a>
 
             {/* Google 번역기 */}
             <a
