@@ -6049,6 +6049,9 @@ const App = () => {
           <a href="https://splitter.aitoolb.com/" target="_blank" rel="noreferrer"
             className="flex items-center justify-center h-8 w-16 md:h-9 md:w-20 rounded-lg text-xs md:text-sm font-black transition-all hover:opacity-80 border-2 border-foreground/40"
             style={{ background: '#2563EB', color: '#fff' }}>Splitter</a>
+          <a href="https://gemini.google.com/gem/1ZVc47ZMKQZEibf5pJyo6A_ZXgcRoBNv9?usp=sharing" target="_blank" rel="noreferrer"
+            className="flex items-center justify-center h-8 w-16 md:h-9 md:w-20 rounded-lg text-xs md:text-sm font-black transition-all hover:opacity-80 border-2 border-foreground/40"
+            style={{ background: '#1565C0', color: '#fff' }}>IMG</a>
         </div>
         <div className="flex items-center gap-1 md:gap-2">
           {currentStage === 'stage1' && (
