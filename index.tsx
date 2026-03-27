@@ -6683,9 +6683,9 @@ const App = () => {
                     onChange={(e) => setCurrentStage(e.target.value as Stage)}
                     className="memphis-input w-full px-3 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-3 border-foreground/40"
                   >
-                    <option value="stage1">1단계 — 프롬프트 에디터</option>
-                    <option value="storyboard">2단계 — 시네마틱 오프닝</option>
-                    <option value="stage3">3단계 — 오프닝 시퀀스</option>
+                    <option value="stage1">1단계 — 마스터 이미지만들기</option>
+                    <option value="storyboard">2단계 — 1분 영상만들기</option>
+                    <option value="stage3">3단계 — 시네마틱 오픈영상</option>
                     <option value="stage2">단편영화 — 컨셉/이미지/영상</option>
                   </select>
                   {['stage1', 'stage2', 'stage3', 'storyboard'].includes(currentStage) && (
