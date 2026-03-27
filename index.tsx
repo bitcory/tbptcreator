@@ -6722,16 +6722,6 @@ const App = () => {
                           <span>3단계 젬 가이드</span>
                         </a>
                       )}
-                      {currentStage === 'storyboard' && (
-                        <a
-                          href="https://gemini.google.com/gem/1Wy6XhDIfeb1rO9AiYYDMdc6-wDoixF60?usp=sharing"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="group neo-btn neo-btn-danger flex items-center justify-center gap-2 flex-1 px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 hover:shadow-neo-sm"
-                        >
-                          <span>음악만들기</span>
-                        </a>
-                      )}
                     </div>
                   )}
                 </div>
@@ -6979,6 +6969,16 @@ const App = () => {
 
           {/* Other tools */}
           <div className="p-2 md:p-3 pt-1 border-t-2 border-foreground/20 space-y-1 shrink-0">
+            {/* 음악만들기 */}
+            <a
+              href="https://gemini.google.com/gem/1Wy6XhDIfeb1rO9AiYYDMdc6-wDoixF60?usp=sharing"
+              target="_blank"
+              rel="noreferrer"
+              className="group neo-btn neo-btn-danger flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all border-3 border-foreground/30 hover:border-foreground/60"
+            >
+              <Music className="w-4 h-4 text-danger" />
+              <span className="flex-1 text-left">음악만들기</span>
+            </a>
             {/* 프레임추출기 */}
             <button
               onClick={() => setCurrentStage('frame-extractor')}
@@ -6993,36 +6993,19 @@ const App = () => {
               <span className="flex-1 text-left">프레임추출기</span>
             </button>
 
-            {/* 배경지우기 */}
-            <button
-              onClick={() => setCurrentStage('bg-remover')}
-              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
-                currentStage === 'bg-remover'
-                  ? 'neo-btn neo-btn-danger border-3 border-foreground shadow-neo-sm'
-                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
-              }`}
+            {/* Magic Eraser */}
+            <a
+              href="https://magiceraser.org/"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all neo-btn border-3 border-foreground/30 hover:border-foreground/60"
             >
-              {currentStage === 'bg-remover' && <div className="w-1.5 h-4 rounded-full bg-danger" />}
               <Eraser className="w-4 h-4 text-danger" />
-              <span className="flex-1 text-left">배경지우기</span>
-            </button>
-
-            {/* 워터마크제거 */}
-            <button
-              onClick={() => setCurrentStage('wm-remover')}
-              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
-                currentStage === 'wm-remover'
-                  ? 'neo-btn neo-btn-secondary border-3 border-foreground shadow-neo-sm'
-                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
-              }`}
-            >
-              {currentStage === 'wm-remover' && <div className="w-1.5 h-4 rounded-full bg-secondary" />}
-              <Droplets className="w-4 h-4 text-secondary" />
-              <span className="flex-1 text-left">워터마크제거</span>
-            </button>
+              <span className="flex-1 text-left">MAGIC ERASER</span>
+            </a>
 
             {/* 음원분리기 */}
-            <button
+            {/* <button
               onClick={() => setCurrentStage('audio-separator')}
               className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
                 currentStage === 'audio-separator'
@@ -7033,7 +7016,7 @@ const App = () => {
               {currentStage === 'audio-separator' && <div className="w-1.5 h-4 rounded-full bg-warning" />}
               <Music className="w-4 h-4 text-warning" />
               <span className="flex-1 text-left">음원분리기</span>
-            </button>
+            </button> */}
 
 
             {/* Google 번역기 */}
@@ -7045,7 +7028,7 @@ const App = () => {
               title="새 탭에서 구글 번역기 열기"
             >
               <ExternalLink className="w-4 h-4 text-secondary" />
-              <span className="flex-1 text-left text-foreground/70">Google 번역기 열기</span>
+              <span className="flex-1 text-left text-foreground/70">구글번역기</span>
             </a>
           </div>
 
