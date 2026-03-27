@@ -1668,10 +1668,7 @@ const OpeningSequenceContent = ({
 
   const allVideoPrompts = openingData.scenes
     .filter(s => s.prompts.video)
-    .map(s => {
-      const p = s.prompts.video!.prompt.trimEnd();
-      return p.toLowerCase().endsWith('no bgm') ? p : `${p} no bgm`;
-    })
+    .map(s => s.prompts.video!.prompt.trimEnd())
     .join('\n\n');
 
   return (
