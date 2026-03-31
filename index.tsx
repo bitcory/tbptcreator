@@ -245,7 +245,8 @@ interface StoryboardData {
   scenes: StoryboardScene[];
 }
 
-type Stage = 'stage1' | 'stage2' | 'stage3' | 'storyboard' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
+type Stage = 'stage1' | 'stage2' | 'stage3' | 'storyboard' | 'cinematic' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
+type CineStage = 1 | 2 | 3 | 4 | 5;
 type Stage2SubPage = 'concept' | 'image' | 'video';
 
 interface OpeningScene {
@@ -6434,6 +6435,27 @@ const App = () => {
     }
   };
 
+  const handleCinematicUpload = () => {
+    setCinematicUploadError(null);
+    let cleaned = cinematicUploadInput.trim();
+    cleaned = cleaned.replace(/^```(?:json|JSON)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
+    try {
+      if (!cleaned) throw new Error('JSON 내용을 입력해주세요.');
+      const json = JSON.parse(cleaned);
+      if (!json.project) throw new Error('"project" 필드가 필요합니다.');
+      setCinematicData(json);
+      setCineStage(1);
+      setCineScene(0);
+      setCineShot(0);
+      setIsCinematicUploadOpen(false);
+      setCinematicUploadInput('');
+      setIsSidebarOpen(false);
+      try { localStorage.setItem('cinematicData', JSON.stringify(json)); } catch {}
+    } catch (e: any) {
+      setCinematicUploadError(e.message || 'JSON 파싱 오류가 발생했습니다.');
+    }
+  };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isImageGenOpen, setIsImageGenOpen] = useState(false);
 
@@ -6460,6 +6482,16 @@ const App = () => {
   const [stage3UploadInput, setStage3UploadInput] = useState('');
   const [stage3UploadError, setStage3UploadError] = useState<string | null>(null);
 
+  // Cinematic (4단계) state
+  const [cinematicData, setCinematicData] = useState<any>(null);
+  const [isCinematicUploadOpen, setIsCinematicUploadOpen] = useState(false);
+  const [cinematicUploadInput, setCinematicUploadInput] = useState('');
+  const [cinematicUploadError, setCinematicUploadError] = useState<string | null>(null);
+  const [cineStage, setCineStage] = useState<CineStage>(1);
+  const [cineScene, setCineScene] = useState(0);
+  const [cineShot, setCineShot] = useState(0);
+  const [cineCharIdx, setCineCharIdx] = useState(0);
+
   // Load Stage2 data from localStorage
   useEffect(() => {
     try {
@@ -6477,6 +6509,10 @@ const App = () => {
     try {
       const sb = localStorage.getItem('storyboardData');
       if (sb) setStoryboardData(JSON.parse(sb));
+    } catch {}
+    try {
+      const cd = localStorage.getItem('cinematicData');
+      if (cd) setCinematicData(JSON.parse(cd));
     } catch {}
   }, []);
 
@@ -6623,6 +6659,17 @@ const App = () => {
              <span className="hidden sm:inline">오프닝</span> 업로드
            </button>
           )}
+          {currentStage === 'cinematic' && (
+           <button
+             onClick={() => { setCinematicUploadError(null); setCinematicUploadInput(''); setIsCinematicUploadOpen(true); }}
+             className="neo-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-3 border-foreground"
+             style={{ background: '#b45309', color: '#fff' }}
+             title="프로덕션 바이블 JSON 업로드"
+           >
+             <Upload className="w-4 h-4" />
+             <span className="hidden sm:inline">바이블</span> 업로드
+           </button>
+          )}
         </div>
       </header>
 
@@ -6683,11 +6730,12 @@ const App = () => {
                     <option value="stage1">1단계 — 마스터 이미지만들기</option>
                     <option value="storyboard">2단계 — 1분 영상만들기</option>
                     <option value="stage3">3단계 — 시네마틱 오픈영상</option>
+                    <option value="cinematic">4단계 — 프로덕션 바이블</option>
                     <option value="stage2">단편영화 — 컨셉/이미지/영상</option>
                   </select>
-                  {['stage1', 'stage2', 'stage3', 'storyboard'].includes(currentStage) && (
+                  {['stage1', 'stage2', 'stage3', 'storyboard', 'cinematic'].includes(currentStage) && (
                     <div className="flex gap-1.5">
-                      {currentStage !== 'stage3' && (
+                      {currentStage !== 'stage3' && currentStage !== 'cinematic' && (
                         <a
                           href={currentStage === 'stage1'
                             ? "https://gemini.google.com/gem/13HOLZGAzOKloWSBnxejnMvWDOJHNvdyu?usp=sharing"
@@ -6708,7 +6756,7 @@ const App = () => {
                           <span>{currentStage === 'stage1' ? '1단계' : currentStage === 'storyboard' ? '2단계' : '단편영화'} 젬 가이드</span>
                         </a>
                       )}
-                      {currentStage === 'stage3' && (
+                      {/* {currentStage === 'stage3' && (
                         <a
                           href="https://gemini.google.com/gem/1_7ZqJxYVyTB82w8Q9WNuUCIvR52ZBAsS?usp=sharing"
                           target="_blank"
@@ -6718,11 +6766,63 @@ const App = () => {
                         >
                           <span>3단계 젬 가이드</span>
                         </a>
-                      )}
+                      )} */}
+                      {/* {currentStage === 'cinematic' && (
+                        <a
+                          href="https://gemini.google.com/gem/1RntwRH_DcDRUBlVdvPPPlRNrSsFd_n0z?usp=sharing"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group neo-btn flex items-center justify-center gap-2 flex-1 px-3 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border-3 hover:shadow-neo-sm"
+                          style={{ background: '#fef3c7', borderColor: '#b45309', color: '#92400e' }}
+                        >
+                          <span>4단계 젬 가이드</span>
+                        </a>
+                      )} */}
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Cinematic Sidebar */}
+              {currentStage === 'cinematic' && cinematicData && (
+                <>
+                  <div className="px-3 md:px-4 py-2 border-y-2 border-foreground/20 shrink-0">
+                    <h2 className="font-black text-base text-foreground flex items-center gap-2 uppercase">
+                      <Clapperboard className="w-5 h-5" style={{ color: '#b45309' }} />
+                      프로덕션 바이블
+                    </h2>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-1.5">
+                    <div className="p-2.5 rounded-lg border-2 border-foreground/10" style={{ background: '#b4530910' }}>
+                      <div className="text-sm font-black text-foreground">{cinematicData.project?.title}</div>
+                      <div className="text-[10px] text-foreground/40 mt-0.5">{cinematicData.project?.titleEn} · {cinematicData.project?.genre}</div>
+                      <div className="text-[10px] text-foreground/50 mt-1 italic leading-relaxed line-clamp-3">{cinematicData.project?.logline}</div>
+                    </div>
+                    <div className="text-[9px] text-foreground/30 font-bold px-1 pt-1">캐릭터</div>
+                    {cinematicData.characters?.map((c: any, i: number) => (
+                      <button key={i} onClick={() => { setCineCharIdx(i); setCineStage(5); setIsSidebarOpen(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs border transition-all hover:border-foreground/30"
+                        style={{ background: cineStage === 5 && cineCharIdx === i ? '#c0965015' : '#ffffff06', borderColor: cineStage === 5 && cineCharIdx === i ? '#c0965040' : 'transparent' }}>
+                        <span className="font-bold" style={{ color: cineStage === 5 && cineCharIdx === i ? '#c09650' : 'inherit' }}>{c.name}</span>
+                        <span className="text-foreground/40 ml-1.5">{c.age} · {c.role}</span>
+                      </button>
+                    ))}
+                    <div className="text-[9px] text-foreground/30 font-bold px-1 pt-1">씬 ({cinematicData.scenes?.length || 0})</div>
+                    {cinematicData.scenes?.map((s: any, i: number) => (
+                      <button key={i} onClick={() => { setCineScene(i); setCineShot(0); setCineStage(2); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs border transition-all hover:border-foreground/30"
+                        style={{ background: cineScene === i ? '#c0965015' : '#ffffff06', borderColor: cineScene === i ? '#c0965040' : 'transparent' }}>
+                        <span className="font-bold" style={{ color: cineScene === i ? '#c09650' : 'inherit' }}>{s.sceneId}</span>
+                        <span className="text-foreground/50 ml-1.5">{s.title}</span>
+                      </button>
+                    ))}
+                    <button onClick={() => { setCinematicData(null); try { localStorage.removeItem('cinematicData'); } catch {} }}
+                      className="neo-btn neo-btn-danger w-full mt-2 py-2 rounded-lg text-xs font-bold">
+                      데이터 초기화
+                    </button>
+                  </div>
+                </>
+              )}
 
               {/* Stage 1 Sidebar Content */}
               {currentStage === 'stage1' && (
@@ -7432,6 +7532,545 @@ const App = () => {
             }}
             tabColors={tabColors}
           />
+          ) : currentStage === 'cinematic' ? (
+          /* Stage 4: Cinematic Production Bible */
+          (() => {
+            if (!cinematicData) {
+              return (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="text-center">
+                    <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center neo-card-static">
+                      <Clapperboard className="w-10 h-10 text-foreground/50" />
+                    </div>
+                    <p className="text-lg font-bold text-foreground/70 mb-2">프로덕션 바이블이 없습니다</p>
+                    <p className="text-sm text-foreground/50 mb-5">프로덕션 바이블 JSON을 업로드하여 시네마틱 데이터를 확인하세요.</p>
+                    <button
+                      onClick={() => { setCinematicUploadError(null); setCinematicUploadInput(''); setIsCinematicUploadOpen(true); }}
+                      className="neo-btn neo-btn-warning px-5 py-2.5 rounded-lg flex items-center gap-2 mx-auto text-sm font-medium"
+                    >
+                      <Upload className="w-4 h-4" /> 프로덕션 바이블 JSON 업로드
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            const cd = cinematicData;
+            const scenes = cd.scenes || [];
+            const screenplay = cd.screenplay || [];
+            const curScene = scenes[cineScene];
+            const curShot = curScene?.shots?.[cineShot];
+            const sceneId = curScene?.sceneId || `S${cineScene + 1}`;
+            const sceneClips = cd.videoClips?.filter((c: any) => c.id?.startsWith(sceneId)) || [];
+            const sceneTrack = cd.music?.tracks?.find((t: any) => t.scene === sceneId);
+            const sceneSfx = cd.music?.sfx?.filter((s: any) => s.scenes?.includes(sceneId)) || [];
+            const sceneVoiceLines: any[] = [];
+            cd.voice?.characters?.forEach((c: any) => { c.lines?.forEach((l: any) => { if (l.scene === sceneId) sceneVoiceLines.push({ ...l, charName: c.name }); }); });
+            const sceneObjects = cd.voice?.objects?.filter((o: any) => o.scene === sceneId) || [];
+
+            const cineTabGroups = ['타임라인', '샷 리스트', '프롬프트', '통합뷰', '캐릭터'];
+            const copyCine = (text: string) => navigator.clipboard.writeText(text);
+
+            return (
+              <div className="flex-1 p-3 md:p-6 flex flex-col min-h-0 relative gap-4">
+                {/* Meta Info Panel */}
+                <div className="shrink-0 neo-card-static rounded-xl p-3 md:p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Clapperboard className="w-5 h-5 text-warning" />
+                      <h3 className="text-base md:text-lg font-black text-foreground uppercase truncate">{cd.project?.title}</h3>
+                      {cd.project?.titleEn && <span className="text-sm text-foreground/60 font-medium">({cd.project.titleEn})</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="memphis-badge text-xs">{cd.project?.totalScenes || scenes.length}씬</span>
+                      <span className="memphis-badge-secondary text-xs">{cd.project?.runtime}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-start">
+                    {cd.project?.genre && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-primary/10 border-2 border-foreground/20">
+                        <span className="text-foreground/60 font-bold">장르</span>
+                        <span className="text-foreground/80">{cd.project.genre}</span>
+                      </div>
+                    )}
+                    {cd.project?.tone && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-secondary/10 border-2 border-foreground/20">
+                        <span className="text-foreground/60 font-bold">톤</span>
+                        <span className="text-foreground/80">{cd.project.tone}</span>
+                      </div>
+                    )}
+                    {cd.characters?.length > 0 && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-warning/10 border-2 border-foreground/20">
+                        <span className="text-foreground/60 font-bold">캐릭터</span>
+                        <span className="text-foreground/80">{cd.characters.length}명</span>
+                      </div>
+                    )}
+                    {cd.videoClips?.length > 0 && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-danger/10 border-2 border-foreground/20">
+                        <span className="text-foreground/60 font-bold">클립</span>
+                        <span className="text-foreground/80">{cd.videoClips.length}개</span>
+                      </div>
+                    )}
+                  </div>
+                  {cd.project?.logline && (
+                    <p className="text-xs text-foreground/60 mt-2 leading-relaxed italic line-clamp-2">"{cd.project.logline}"</p>
+                  )}
+                </div>
+
+                {/* Tab Bar */}
+                <div className="flex-1 neo-card-static rounded-xl overflow-hidden min-h-0 flex flex-col">
+                  <div className="shrink-0 flex gap-1.5 md:gap-2 p-2 md:p-3 bg-content2 border-b-3 border-foreground overflow-x-auto">
+                    {cineTabGroups.map((group, idx) => {
+                      const tc = tabColors[idx % tabColors.length];
+                      const stageNum = (idx + 1) as CineStage;
+                      const isActive = cineStage === stageNum;
+                      return (
+                        <button
+                          key={group}
+                          onClick={() => setCineStage(stageNum)}
+                          className={`relative flex-1 px-2.5 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 rounded-lg ${
+                            isActive ? 'border-3 border-foreground shadow-neo-sm' : 'border-3 border-transparent hover:bg-foreground/5'
+                          }`}
+                          style={{ background: isActive ? tc.bg : 'transparent', color: tc.text }}
+                        >
+                          <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shrink-0 transition-all" style={{ backgroundColor: tc.dot, opacity: isActive ? 1 : 0.3 }} />
+                          <span>{group}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Content Area */}
+                  <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-5">
+                    {/* Breadcrumb */}
+                    {(cineStage as number) > 1 && (cineStage as number) <= 4 && (
+                      <div className="flex items-center gap-2 text-xs text-foreground/50">
+                        <button onClick={() => setCineStage(1)} className="hover:text-foreground font-bold">{sceneId}</button>
+                        {(cineStage as number) >= 2 && curScene && <><span className="text-foreground/20">›</span><button onClick={() => setCineStage(2)} className="hover:text-foreground">{curScene.title}</button></>}
+                        {(cineStage as number) >= 3 && curShot && <><span className="text-foreground/20">›</span><span className="text-foreground/70 font-bold">{curShot.id} {curShot.label}</span></>}
+                      </div>
+                    )}
+
+                    {/* === Tab 1: Timeline === */}
+                    {cineStage === 1 && (
+                      <>
+                        {(screenplay.length > 0 ? screenplay : scenes).map((s: any, i: number) => {
+                          const scene = scenes[i];
+                          const sid = s.sceneId || scene?.sceneId || `S${i+1}`;
+                          const tc = tabColors[i % tabColors.length];
+                          const shotCount = scene?.shots?.length || 0;
+                          return (
+                            <div key={i} onClick={() => { setCineScene(i); setCineShot(0); setCineStage(2); }}
+                              className={`neo-card-static rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-neo-sm ${cineScene === i ? 'ring-2 ring-warning' : ''}`}>
+                              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground flex items-center justify-between" style={{ background: tc.bg }}>
+                                <div className="flex items-center gap-2.5">
+                                  <span className="memphis-badge-secondary text-xs font-bold px-2 py-0.5 rounded-md">{sid}</span>
+                                  <span className="text-sm md:text-base font-bold text-foreground">{s.title || scene?.title}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{s.time || scene?.time}</span>
+                                  {shotCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-foreground/10">{shotCount} shots</span>}
+                                </div>
+                              </div>
+                              <div className="p-3 md:p-4 space-y-1.5">
+                                <div className="text-xs text-foreground/70">{s.location || scene?.setting} {s.timeOfDay ? `· ${s.timeOfDay}` : ''}</div>
+                                {scene?.mood && <div className="text-[10px] text-foreground/50 italic">{scene.mood}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* === Tab 2: Shot List === */}
+                    {cineStage === 2 && curScene && (
+                      <>
+                        <div className="neo-card-static rounded-xl p-3 md:p-4 border-b-3 border-foreground">
+                          <div className="text-base font-black text-foreground">{sceneId}. {curScene.title}</div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="text-[10px] px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{curScene.time}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{curScene.setting}</span>
+                            {curScene.mood && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border border-foreground/20 bg-content1">{curScene.mood}</span>}
+                          </div>
+                        </div>
+                        {curScene.shots?.map((shot: any, si: number) => {
+                          const tc = tabColors[si % tabColors.length];
+                          return (
+                            <div key={si} onClick={() => { setCineShot(si); setCineStage(3); }}
+                              className={`neo-card-static rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-neo-sm ${cineShot === si ? 'ring-2 ring-warning' : ''}`}>
+                              <div className="px-3 md:px-4 py-2 md:py-2.5 border-b-2 border-foreground/15 flex items-center justify-between" style={{ background: tc.bg }}>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="memphis-badge text-xs font-bold">{shot.id}</span>
+                                  <span className="text-[10px] uppercase px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{shot.type}</span>
+                                  <span className="text-sm font-bold text-foreground">{shot.label}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {shot.category && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-foreground/10">{shot.category}</span>}
+                                  <span className="text-[10px] text-foreground/40">{shot.prompts?.length || 0}p ›</span>
+                                </div>
+                              </div>
+                              {shot.note && <div className="px-3 py-2 text-xs text-foreground/60 border-b border-foreground/10">{shot.note}</div>}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* === Tab 3: Prompts === */}
+                    {cineStage === 3 && curScene && curShot && (
+                      <>
+                        <div className="neo-card-static rounded-xl p-3 md:p-4 border-b-3 border-foreground">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="memphis-badge text-xs font-bold">{curShot.id}</span>
+                            <span className="text-[10px] uppercase px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{curShot.type}</span>
+                            {curShot.category && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-foreground/10">{curShot.category}</span>}
+                          </div>
+                          <div className="text-base font-black text-foreground">{curShot.label}</div>
+                          {curShot.note && <p className="text-xs text-foreground/60 mt-1.5 leading-relaxed">{curShot.note}</p>}
+                        </div>
+                        {curScene.bgPrompt && (
+                          <div className="neo-card-static rounded-xl overflow-hidden">
+                            <div className="px-3 md:px-4 py-2 border-b-3 border-foreground flex items-center justify-between bg-content2">
+                              <div className="flex items-center gap-1.5">
+                                <ImageIcon className="w-3.5 h-3.5 text-secondary" />
+                                <span className="text-[10px] uppercase tracking-wider text-foreground/50 font-bold">SCENE BG</span>
+                              </div>
+                              <button onClick={() => copyCine(curScene.bgPrompt)} className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"><Copy className="w-3 h-3" /> 복사</button>
+                            </div>
+                            <div className="p-3 md:p-4">
+                              <p className="text-sm text-foreground/80 leading-relaxed font-mono whitespace-pre-wrap">{curScene.bgPrompt}</p>
+                            </div>
+                          </div>
+                        )}
+                        {curShot.prompts?.map((pr: any, pi: number) => {
+                          const tc = tabColors[pi % tabColors.length];
+                          return (
+                            <div key={pi} className="neo-card-static rounded-xl overflow-hidden">
+                              <div className="px-3 md:px-4 py-2 border-b-3 border-foreground flex items-center justify-between" style={{ background: tc.bg }}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tc.dot }} />
+                                  <span className="text-xs font-bold text-foreground">{pr.tag}</span>
+                                </div>
+                                <button onClick={() => copyCine(pr.en)} className="neo-btn px-2 py-0.5 flex items-center gap-1 rounded text-[10px]"><Copy className="w-3 h-3" /> EN 복사</button>
+                              </div>
+                              <div className="p-3 md:p-4 space-y-2">
+                                <textarea
+                                  value={pr.en}
+                                  readOnly
+                                  className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-2.5 resize-y min-h-[80px]"
+                                  rows={3}
+                                />
+                                {pr.kr && (
+                                  <div className="px-3 py-2 rounded-lg text-xs text-foreground/50 leading-relaxed bg-content3 border-2 border-foreground/10">{pr.kr}</div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <button onClick={() => setCineStage(4)} className="neo-btn neo-btn-warning w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                          통합 프로덕션 뷰로 이동 →
+                        </button>
+                      </>
+                    )}
+
+                    {/* === Tab 4: Integrated View === */}
+                    {cineStage === 4 && curScene && (
+                      <>
+                        <div className="neo-card-static rounded-xl p-3 md:p-4 border-b-3 border-foreground">
+                          <div className="text-[10px] uppercase tracking-widest text-foreground/40 font-bold mb-1">INTEGRATED PRODUCTION VIEW</div>
+                          <div className="text-lg font-black text-foreground">{sceneId}. {curScene.title}</div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="text-[10px] px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{curScene.time}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{curScene.setting}</span>
+                            {curShot && <span className="memphis-badge text-xs">{curShot.id} {curShot.label}</span>}
+                          </div>
+                        </div>
+
+                        {/* Image Prompts */}
+                        {curShot && (
+                          <div className="neo-card-static rounded-xl overflow-hidden">
+                            <div className="px-3 md:px-4 py-2 border-b-3 border-foreground bg-primary/10 flex items-center gap-2">
+                              <ImageIcon className="w-4 h-4 text-primary" />
+                              <span className="text-xs font-bold text-foreground uppercase">이미지 프롬프트 · {curShot.id}</span>
+                            </div>
+                            <div className="p-3 md:p-4 space-y-2">
+                              {curShot.prompts?.map((pr: any, pi: number) => (
+                                <div key={pi} className="rounded-lg border-2 border-foreground/10 overflow-hidden">
+                                  <div className="px-3 py-1.5 bg-content2 flex items-center justify-between border-b border-foreground/10">
+                                    <span className="text-[10px] font-bold text-foreground/70">{pr.tag}</span>
+                                    <button onClick={() => copyCine(pr.en)} className="neo-btn px-2 py-0.5 rounded text-[10px]"><Copy className="w-3 h-3" /></button>
+                                  </div>
+                                  <div className="p-2.5 text-xs text-foreground/70 leading-relaxed font-mono">{pr.en}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Video Clips */}
+                        {sceneClips.length > 0 && (
+                          <div className="neo-card-static rounded-xl overflow-hidden">
+                            <div className="px-3 md:px-4 py-2 border-b-3 border-foreground bg-warning/10 flex items-center gap-2">
+                              <Film className="w-4 h-4 text-warning" />
+                              <span className="text-xs font-bold text-foreground uppercase">비디오 클립 · {sceneClips.length}개</span>
+                            </div>
+                            <div className="p-3 md:p-4 space-y-3">
+                              {sceneClips.map((clip: any, ci: number) => (
+                                <div key={ci} className="rounded-lg border-2 border-foreground/10 overflow-hidden">
+                                  <div className="px-3 py-2 bg-content2 border-b border-foreground/10 flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="memphis-badge text-[10px]">{clip.duration}</span>
+                                      <span className="text-xs font-bold text-foreground">{clip.label}</span>
+                                    </div>
+                                  </div>
+                                  <div className="px-3 py-1.5 text-[10px] text-foreground/40 border-b border-foreground/5">📷 {clip.camera}</div>
+                                  <div className="p-2.5 space-y-2">
+                                    {clip.kling && (
+                                      <div>
+                                        <div className="flex justify-between mb-1">
+                                          <span className="text-[10px] font-bold text-secondary">KLING v3</span>
+                                          <button onClick={() => copyCine(clip.kling.prompt)} className="neo-btn px-2 py-0.5 rounded text-[10px]"><Copy className="w-3 h-3" /></button>
+                                        </div>
+                                        <p className="text-xs text-foreground/60 leading-relaxed font-mono">{clip.kling.prompt}</p>
+                                      </div>
+                                    )}
+                                    {clip.seedance && (
+                                      <div>
+                                        <div className="flex justify-between mb-1">
+                                          <span className="text-[10px] font-bold text-primary">SEEDANCE</span>
+                                          <button onClick={() => copyCine(clip.seedance.prompt)} className="neo-btn px-2 py-0.5 rounded text-[10px]"><Copy className="w-3 h-3" /></button>
+                                        </div>
+                                        <p className="text-xs text-foreground/60 leading-relaxed font-mono">{clip.seedance.prompt}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Music */}
+                        {sceneTrack && (
+                          <div className="neo-card-static rounded-xl overflow-hidden">
+                            <div className="px-3 md:px-4 py-2 border-b-3 border-foreground bg-danger/10 flex items-center gap-2">
+                              <Music className="w-4 h-4 text-danger" />
+                              <span className="text-xs font-bold text-foreground uppercase">{sceneTrack.title}</span>
+                            </div>
+                            <div className="p-3 md:p-4 space-y-2">
+                              <div className="flex flex-wrap gap-2">
+                                <span className="text-[10px] px-2 py-0.5 rounded font-bold border-2 border-foreground/20 bg-foreground/5">{sceneTrack.duration}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border border-foreground/20 bg-content1">{sceneTrack.emotion}</span>
+                              </div>
+                              <div className="rounded-lg border-2 border-foreground/10 overflow-hidden">
+                                <div className="px-3 py-1.5 bg-content2 flex justify-between border-b border-foreground/10">
+                                  <span className="text-[10px] font-bold text-foreground/70">SUNO PROMPT</span>
+                                  <button onClick={() => copyCine(sceneTrack.prompt)} className="neo-btn px-2 py-0.5 rounded text-[10px]"><Copy className="w-3 h-3" /></button>
+                                </div>
+                                <div className="p-2.5 text-xs text-foreground/60 leading-relaxed font-mono">{sceneTrack.prompt}</div>
+                              </div>
+                              {sceneTrack.cuePoints?.length > 0 && (
+                                <div className="rounded-lg border-2 border-foreground/10 p-2.5">
+                                  <div className="text-[10px] font-bold text-foreground/50 mb-1.5 uppercase">Cue Points</div>
+                                  {sceneTrack.cuePoints.map((cue: any, ci: number) => (
+                                    <div key={ci} className="flex gap-2 py-1 text-xs border-b border-foreground/5 last:border-0">
+                                      <span className="min-w-[44px] font-mono font-bold text-danger">{cue.time}</span>
+                                      <span className="text-foreground/50">{cue.note}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Voice */}
+                        {(sceneVoiceLines.length > 0 || sceneObjects.length > 0) && (
+                          <div className="neo-card-static rounded-xl overflow-hidden">
+                            <div className="px-3 md:px-4 py-2 border-b-3 border-foreground bg-primary/10 flex items-center gap-2">
+                              <Mic className="w-4 h-4 text-primary" />
+                              <span className="text-xs font-bold text-foreground uppercase">음성 · {sceneVoiceLines.length + sceneObjects.length}개</span>
+                            </div>
+                            <div className="p-3 md:p-4 space-y-2">
+                              {sceneVoiceLines.map((line: any, li: number) => (
+                                <div key={li} className="rounded-lg border-2 border-foreground/10 p-3">
+                                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                    <span className="memphis-badge text-[10px]">{line.charName}</span>
+                                    <span className="text-[10px] text-foreground/40">{line.time} · {line.duration}</span>
+                                    {line.lipsync && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-danger/10 text-danger border border-danger/30">립싱크</span>}
+                                  </div>
+                                  <p className="text-sm font-bold text-foreground leading-relaxed">"{line.text}"</p>
+                                  <p className="text-[10px] text-foreground/40 mt-1">{line.emotion} · {line.delivery}</p>
+                                </div>
+                              ))}
+                              {sceneObjects.map((obj: any, oi: number) => (
+                                <div key={oi} className="rounded-lg border-2 border-foreground/10 p-3 border-l-4 border-l-secondary">
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-base">{obj.emoji || '🔊'}</span>
+                                    <span className="memphis-badge-secondary text-[10px]">{obj.name}</span>
+                                  </div>
+                                  {obj.line && <>
+                                    <p className="text-sm italic font-bold text-secondary leading-relaxed">"{obj.line.text}"</p>
+                                    <p className="text-[10px] text-foreground/40 mt-1">{obj.line.emotion} · {obj.line.delivery}</p>
+                                  </>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SFX */}
+                        {sceneSfx.length > 0 && (
+                          <div className="neo-card-static rounded-xl overflow-hidden">
+                            <div className="px-3 md:px-4 py-2 border-b-3 border-foreground bg-warning/10 flex items-center gap-2">
+                              <Volume2 className="w-4 h-4 text-warning" />
+                              <span className="text-xs font-bold text-foreground uppercase">SFX · {sceneSfx.length}개</span>
+                            </div>
+                            <div className="p-3 md:p-4 space-y-2">
+                              {sceneSfx.map((sfx: any, si: number) => (
+                                <div key={si} className="rounded-lg border-2 border-foreground/10 overflow-hidden">
+                                  <div className="px-3 py-1.5 bg-content2 flex justify-between border-b border-foreground/10">
+                                    <span className="text-xs font-bold text-foreground">{sfx.name}</span>
+                                    <button onClick={() => copyCine(sfx.prompt)} className="neo-btn px-2 py-0.5 rounded text-[10px]"><Copy className="w-3 h-3" /></button>
+                                  </div>
+                                  <div className="p-2.5 text-xs text-foreground/50 leading-relaxed">{sfx.desc}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* === Tab 5: Characters === */}
+                    {cineStage === 5 && cd.characters?.length > 0 && (() => {
+                      const chars = cd.characters;
+                      const safeIdx = Math.min(cineCharIdx, chars.length - 1);
+                      const c = chars[safeIdx];
+                      const tc = tabColors[safeIdx % tabColors.length];
+                      return (
+                        <>
+                          {/* Character Sub-Tabs */}
+                          <div className="flex gap-1.5 overflow-x-auto pb-1">
+                            {chars.map((ch: any, ci: number) => {
+                              const ctc = tabColors[ci % tabColors.length];
+                              const isActive = ci === safeIdx;
+                              return (
+                                <button
+                                  key={ci}
+                                  onClick={() => setCineCharIdx(ci)}
+                                  className={`shrink-0 px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 rounded-lg border-3 ${
+                                    isActive ? 'border-foreground shadow-neo-sm' : 'border-foreground/20 hover:border-foreground/40'
+                                  }`}
+                                  style={{ background: isActive ? ctc.bg : 'transparent', color: ctc.text }}
+                                >
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ctc.dot, opacity: isActive ? 1 : 0.5 }} />
+                                  <span>{ch.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Selected Character Detail */}
+                          {c && (
+                            <div className="neo-card-static rounded-xl overflow-hidden">
+                              <div className="px-3 md:px-4 py-2.5 md:py-3 border-b-3 border-foreground flex items-center justify-between" style={{ background: tc.bg }}>
+                                <div className="flex items-center gap-2.5">
+                                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: tc.dot }} />
+                                  <span className="text-sm md:text-base font-black text-foreground">{c.name}</span>
+                                  {c.nameEn && <span className="text-xs text-foreground/50">({c.nameEn})</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {c.age && <span className="memphis-badge text-[10px]">{c.age}</span>}
+                                  {c.role && <span className="memphis-badge-secondary text-[10px]">{c.role}</span>}
+                                </div>
+                              </div>
+                              <div className="p-3 md:p-4 space-y-4">
+                                {c.description && <p className="text-sm text-foreground/70 leading-relaxed">{c.description}</p>}
+
+                                {/* Appearance Table */}
+                                {c.appearance && Object.keys(c.appearance).length > 0 && (
+                                  <div className="neo-card-static rounded-lg overflow-hidden">
+                                    <div className="px-3 py-2 bg-content2 border-b-2 border-foreground/10">
+                                      <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">외모 (Appearance)</span>
+                                    </div>
+                                    <div className="divide-y divide-foreground/5">
+                                      {Object.entries(c.appearance).map(([k, v]: [string, any]) => v && v !== '-' && (
+                                        <div key={k} className="flex gap-3 px-3 py-2 items-start">
+                                          <span className="min-w-[80px] text-[11px] font-bold uppercase shrink-0" style={{ color: tc.text }}>{k}</span>
+                                          <span className="text-xs text-foreground/70 leading-relaxed">{v}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Expression Arc */}
+                                {c.expressionArc && c.expressionArc.length > 0 && (
+                                  <div className="neo-card-static rounded-lg overflow-hidden">
+                                    <div className="px-3 py-2 bg-content2 border-b-2 border-foreground/10">
+                                      <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">감정 아크 (Expression Arc)</span>
+                                    </div>
+                                    <div className="p-3 flex flex-wrap gap-1.5 items-center">
+                                      {c.expressionArc.map((e: string, ei: number) => (
+                                        <span key={ei} className="flex items-center gap-1">
+                                          <span className="text-[11px] px-2.5 py-1 rounded-full font-bold border-2 border-foreground/20 bg-content1">{e}</span>
+                                          {ei < c.expressionArc.length - 1 && <ArrowRight className="w-3 h-3 text-foreground/20" />}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Base Prompt */}
+                                {c.promptBase && (
+                                  <div className="neo-card-static rounded-lg overflow-hidden">
+                                    <div className="px-3 py-2 bg-content2 flex justify-between items-center border-b-2 border-foreground/10">
+                                      <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Base Prompt</span>
+                                      <button onClick={() => copyCine(c.promptBase)} className="neo-btn px-2.5 py-1 flex items-center gap-1 rounded text-[10px]"><Copy className="w-3 h-3" /> 복사</button>
+                                    </div>
+                                    <div className="p-3">
+                                      <textarea
+                                        value={c.promptBase}
+                                        readOnly
+                                        className="memphis-input w-full text-sm leading-relaxed font-mono whitespace-pre-wrap rounded-lg p-3 resize-y min-h-[80px]"
+                                        rows={3}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Scene Appearances — which scenes this character appears in */}
+                                {(() => {
+                                  const charScenes = scenes.filter((s: any) => s.shots?.some((sh: any) => sh.prompt?.toLowerCase().includes(c.name?.toLowerCase()) || sh.promptKo?.includes(c.name)));
+                                  if (charScenes.length === 0) return null;
+                                  return (
+                                    <div className="neo-card-static rounded-lg overflow-hidden">
+                                      <div className="px-3 py-2 bg-content2 border-b-2 border-foreground/10">
+                                        <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">등장 씬 ({charScenes.length})</span>
+                                      </div>
+                                      <div className="p-2 flex flex-wrap gap-1.5">
+                                        {charScenes.map((s: any, si: number) => (
+                                          <button key={si} onClick={() => { setCineScene(scenes.indexOf(s)); setCineShot(0); setCineStage(2); }}
+                                            className="neo-btn px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 border-2 border-foreground/15 hover:border-foreground/30">
+                                            <span style={{ color: tc.text }}>{s.sceneId}</span>
+                                            <span className="text-foreground/50 font-medium">{s.title}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            );
+          })()
           ) : currentStage === 'stage3' ? (
           /* Stage 3: Opening Sequence Full Scenes */
           <OpeningSequenceContent
@@ -7713,6 +8352,50 @@ const App = () => {
               >
                 <Upload className="w-4 h-4" />
                 적용
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cinematic Upload Modal */}
+      {isCinematicUploadOpen && (
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="neo-card-static rounded-2xl max-w-2xl w-full flex flex-col h-[90vh] md:h-[80vh] animate-scale-in">
+            <div className="p-3 md:p-5 border-b-3 border-foreground flex items-center justify-between shrink-0">
+              <h3 className="text-base md:text-lg font-black text-foreground flex items-center gap-2 uppercase">
+                <Clapperboard className="w-5 h-5" style={{ color: '#b45309' }} />
+                프로덕션 바이블 JSON 불러오기
+              </h3>
+              <button onClick={() => setIsCinematicUploadOpen(false)} className="neo-btn neo-btn-danger p-1.5 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-3 md:p-6 flex-1 overflow-hidden flex flex-col">
+              {cinematicUploadError && (
+                <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-xs shrink-0 bg-danger/10 border-2 border-foreground">
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+                  <div><p className="font-bold text-danger">오류 발생</p><p className="text-foreground/80">{cinematicUploadError}</p></div>
+                </div>
+              )}
+              <div className="mb-3 p-2.5 rounded-lg text-xs text-foreground/60 shrink-0 bg-content2 border-2 border-foreground/20 space-y-1">
+                <p className="font-bold text-foreground/80">프로덕션 바이블 JSON 형식:</p>
+                <p>{"{"} "project": {"{"} "title": "...", "logline": "..." {"}"}, "characters": [...], "scenes": [...], "videoClips": [...], "music": {"{"} ... {"}"}, "voice": {"{"} ... {"}"} {"}"}</p>
+              </div>
+              <textarea
+                value={cinematicUploadInput}
+                onChange={(e) => setCinematicUploadInput(e.target.value)}
+                placeholder='{"project": {"title": "...", "logline": "..."}, "scenes": [...]}'
+                className="memphis-input flex-1 w-full p-3 md:p-4 font-mono text-xs rounded-xl resize-none"
+              />
+            </div>
+            <div className="p-3 md:p-5 border-t-3 border-foreground flex justify-end gap-2 md:gap-3 shrink-0">
+              <button onClick={() => setIsCinematicUploadOpen(false)} className="neo-btn px-3 md:px-4 py-2 text-sm font-medium rounded-lg">취소</button>
+              <button
+                onClick={handleCinematicUpload}
+                disabled={!cinematicUploadInput.trim()}
+                className="neo-btn px-4 md:px-6 py-2 text-sm font-medium rounded-lg flex items-center gap-2 disabled:opacity-30 border-3 border-foreground"
+                style={{ background: '#b45309', color: '#fff' }}
+              >
+                <Upload className="w-4 h-4" /> 적용
               </button>
             </div>
           </div>
