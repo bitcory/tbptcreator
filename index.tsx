@@ -2580,11 +2580,14 @@ const FileRenamerContent = () => {
   const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const gridRef = React.useRef<HTMLDivElement>(null);
 
-  // Restore card focus after re-renders (e.g. after rename)
+  // Restore card focus after re-renders, but only if focus is on body (lost)
   React.useEffect(() => {
     if (focusedIndex >= 0 && editingIndex === -1) {
+      const active = document.activeElement;
+      const isOnOtherInput = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement;
+      if (isOnOtherInput) return;
       const card = cardRefs.current[focusedIndex];
-      if (card && document.activeElement !== card) {
+      if (card && active !== card) {
         card.focus();
       }
     }
@@ -2661,7 +2664,7 @@ const FileRenamerContent = () => {
         break;
       case ' ':
         e.preventDefault();
-        setPreviewFile(files[index]);
+        openPreview(files[index]);
         break;
       case 'Escape':
         setFocusedIndex(-1);
@@ -2702,63 +2705,99 @@ const FileRenamerContent = () => {
   const [isDragging, setIsDragging] = React.useState(false);
   const dragCounter = React.useRef(0);
 
-  const loadMediaUrl = async (handle: FileSystemFileHandle): Promise<string | undefined> => {
+  const generateImageDataUrl = async (handle: FileSystemFileHandle): Promise<string | undefined> => {
     try {
       const file = await handle.getFile();
-      return URL.createObjectURL(file);
+      const blobUrl = URL.createObjectURL(file);
+      return await new Promise<string | undefined>(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 200;
+          canvas.height = 200;
+          const ctx = canvas.getContext('2d')!;
+          const scale = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+          const w = img.naturalWidth * scale;
+          const h = img.naturalHeight * scale;
+          ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+          URL.revokeObjectURL(blobUrl);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(undefined); };
+        img.src = blobUrl;
+      });
     } catch {
       return undefined;
     }
   };
 
-  const generateVideoThumbnail = (url: string): Promise<string | undefined> => {
-    return new Promise(resolve => {
-      const video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
-      video.muted = true;
-      video.preload = 'metadata';
-      video.onloadeddata = () => {
-        video.currentTime = Math.min(1, video.duration / 4);
-      };
-      video.onseeked = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = 160;
-          canvas.height = 160;
-          const ctx = canvas.getContext('2d')!;
-          const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
-          const w = video.videoWidth * scale;
-          const h = video.videoHeight * scale;
-          ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
-        } catch {
-          resolve(undefined);
-        }
-      };
-      video.onerror = () => resolve(undefined);
-      setTimeout(() => resolve(undefined), 5000);
-      video.src = url;
-    });
+  const generateVideoThumbnail = async (handle: FileSystemFileHandle): Promise<string | undefined> => {
+    try {
+      const file = await handle.getFile();
+      const blobUrl = URL.createObjectURL(file);
+      return await new Promise<string | undefined>(resolve => {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.preload = 'metadata';
+        video.onloadeddata = () => {
+          video.currentTime = Math.min(1, video.duration / 4);
+        };
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d')!;
+            const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+            const w = video.videoWidth * scale;
+            const h = video.videoHeight * scale;
+            ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+            URL.revokeObjectURL(blobUrl);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          } catch {
+            URL.revokeObjectURL(blobUrl);
+            resolve(undefined);
+          }
+        };
+        video.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(undefined); };
+        setTimeout(() => { URL.revokeObjectURL(blobUrl); resolve(undefined); }, 5000);
+        video.src = blobUrl;
+      });
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Open preview: create blob URL on demand, revoke on close
+  const openPreview = async (file: RenameFileEntry) => {
+    try {
+      const f = await file.handle.getFile();
+      const url = URL.createObjectURL(f);
+      setPreviewFile({ ...file, objectUrl: url });
+    } catch {
+      setMessage({ type: 'error', text: '파일을 열 수 없습니다.' });
+    }
+  };
+  const closePreview = () => {
+    if (previewFile?.objectUrl) URL.revokeObjectURL(previewFile.objectUrl);
+    closePreview();
   };
 
   const buildFileEntry = async (fileHandle: FileSystemFileHandle): Promise<RenameFileEntry | null> => {
-    const name = fileHandle.name;
+    const name = fileHandle.name.normalize('NFC');
     const ext = getExt(name);
     if (!MEDIA_EXTS.includes(ext)) return null;
     const isVideo = VIDEO_EXTS.includes(ext);
-    const objectUrl = await loadMediaUrl(fileHandle);
-    let thumbnailUrl = objectUrl;
-    if (isVideo && objectUrl) {
-      const videoThumb = await generateVideoThumbnail(objectUrl);
-      thumbnailUrl = videoThumb || undefined;
-    }
+    const thumbnailUrl = isVideo
+      ? await generateVideoThumbnail(fileHandle)
+      : await generateImageDataUrl(fileHandle);
     return {
       handle: fileHandle,
       originalName: name,
       newName: getBaseName(name),
       ext,
       thumbnailUrl,
-      objectUrl,
+      objectUrl: undefined,
       isVideo,
       status: 'pending',
     };
@@ -2852,10 +2891,12 @@ const FileRenamerContent = () => {
   };
 
   const applyBatchTools = () => {
+    const normalizedFind = findText.normalize('NFC');
+    const normalizedReplace = replaceText.normalize('NFC');
     setFiles(prev => prev.map((f, i) => {
-      let baseName = getBaseName(f.originalName);
-      if (findText) {
-        baseName = baseName.split(findText).join(replaceText);
+      let baseName = getBaseName(f.originalName).normalize('NFC');
+      if (normalizedFind) {
+        baseName = baseName.split(normalizedFind).join(normalizedReplace);
       }
       if (prefix) baseName = prefix + baseName;
       if (suffix) baseName = baseName + suffix;
@@ -2881,22 +2922,10 @@ const FileRenamerContent = () => {
     const fullNewName = entry.newName + '.' + entry.ext;
     if (fullNewName === entry.originalName) return;
     try {
-      // Release objectUrl and clear from DOM to unlock file
-      if (entry.objectUrl) URL.revokeObjectURL(entry.objectUrl);
-      setFiles(prev => prev.map((f, i) => i === index ? { ...f, objectUrl: undefined } : f));
-      await new Promise(r => requestAnimationFrame(r));
       await (entry.handle as any).move(fullNewName);
-      // Reload objectUrl & thumbnail after rename
-      const newObjectUrl = await loadMediaUrl(entry.handle);
-      let newThumb = newObjectUrl;
-      if (entry.isVideo && newObjectUrl) {
-        newThumb = await generateVideoThumbnail(newObjectUrl) || undefined;
-      }
-      setFiles(prev => prev.map((f, i) => i === index ? { ...f, originalName: fullNewName, objectUrl: newObjectUrl, thumbnailUrl: newThumb, status: 'renamed' as const } : f));
+      setFiles(prev => prev.map((f, i) => i === index ? { ...f, originalName: fullNewName, status: 'renamed' as const } : f));
     } catch (e: any) {
-      // Try to restore objectUrl on failure
-      const restoredUrl = await loadMediaUrl(entry.handle).catch(() => undefined);
-      setFiles(prev => prev.map((f, i) => i === index ? { ...f, objectUrl: restoredUrl, status: 'error' as const } : f));
+      setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error' as const } : f));
       setMessage({ type: 'error', text: `"${entry.originalName}" 변경 실패: ${e.message}` });
     }
   };
@@ -2904,14 +2933,6 @@ const FileRenamerContent = () => {
   const renameAll = async () => {
     setApplyingAll(true);
     setMessage(null);
-    // Release all objectUrls first to unlock files
-    setFiles(prev => prev.map(f => {
-      if (f.objectUrl) URL.revokeObjectURL(f.objectUrl);
-      return { ...f, objectUrl: undefined };
-    }));
-    // Wait for DOM to drop img/video src references
-    await new Promise(r => requestAnimationFrame(r));
-
     let successCount = 0;
     let errorCount = 0;
     for (let i = 0; i < files.length; i++) {
@@ -2923,16 +2944,10 @@ const FileRenamerContent = () => {
       }
       try {
         await (entry.handle as any).move(fullNewName);
-        const newObjectUrl = await loadMediaUrl(entry.handle);
-        let newThumb = newObjectUrl;
-        if (entry.isVideo && newObjectUrl) {
-          newThumb = await generateVideoThumbnail(newObjectUrl) || undefined;
-        }
-        setFiles(prev => prev.map((f, j) => j === i ? { ...f, originalName: fullNewName, objectUrl: newObjectUrl, thumbnailUrl: newThumb, status: 'renamed' as const } : f));
+        setFiles(prev => prev.map((f, j) => j === i ? { ...f, originalName: fullNewName, status: 'renamed' as const } : f));
         successCount++;
       } catch (e: any) {
-        const restoredUrl = await loadMediaUrl(entry.handle).catch(() => undefined);
-        setFiles(prev => prev.map((f, j) => j === i ? { ...f, objectUrl: restoredUrl, status: 'error' as const } : f));
+        setFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'error' as const } : f));
         errorCount++;
       }
     }
@@ -3030,6 +3045,7 @@ const FileRenamerContent = () => {
                 type="text"
                 value={prefix}
                 onChange={e => setPrefix(e.target.value)}
+                onFocus={() => setFocusedIndex(-1)}
                 placeholder="앞에 추가..."
                 className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
               />
@@ -3043,6 +3059,7 @@ const FileRenamerContent = () => {
                 type="text"
                 value={suffix}
                 onChange={e => setSuffix(e.target.value)}
+                onFocus={() => setFocusedIndex(-1)}
                 placeholder="뒤에 추가..."
                 className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
               />
@@ -3056,6 +3073,7 @@ const FileRenamerContent = () => {
                 type="text"
                 value={findText}
                 onChange={e => setFindText(e.target.value)}
+                onFocus={() => setFocusedIndex(-1)}
                 placeholder="찾을 텍스트..."
                 className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
               />
@@ -3069,6 +3087,7 @@ const FileRenamerContent = () => {
                 type="text"
                 value={replaceText}
                 onChange={e => setReplaceText(e.target.value)}
+                onFocus={() => setFocusedIndex(-1)}
                 placeholder="바꿀 텍스트..."
                 className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
               />
@@ -3167,7 +3186,7 @@ const FileRenamerContent = () => {
                       {/* Center preview button */}
                       <button
                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border-2 border-white/30 hover:scale-110 transition-all shadow-lg opacity-0 group-hover:opacity-100 z-10"
-                        onClick={e => { e.stopPropagation(); setPreviewFile(file); }}
+                        onClick={e => { e.stopPropagation(); openPreview(file); }}
                         tabIndex={-1}
                       >
                         {file.isVideo ? (
@@ -3280,8 +3299,8 @@ const FileRenamerContent = () => {
       {previewFile && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={() => setPreviewFile(null)}
-          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setPreviewFile(null); } }}
+          onClick={() => closePreview()}
+          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); closePreview(); } }}
           tabIndex={0}
           ref={el => el?.focus()}
         >
@@ -3291,7 +3310,7 @@ const FileRenamerContent = () => {
           >
             {/* Close button */}
             <button
-              onClick={() => setPreviewFile(null)}
+              onClick={() => closePreview()}
               className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full bg-foreground text-background flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
             >
               <X className="w-5 h-5" />
