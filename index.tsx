@@ -52,6 +52,12 @@ import {
   Mic,
   Film as FilmIcon,
   Clapperboard,
+  FilePen,
+  FolderOpen,
+  Search,
+  Replace,
+  Hash,
+  Type,
 } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import { stemSeparator, type StemProgress } from './src/audio/StemSeparator';
@@ -245,7 +251,7 @@ interface StoryboardData {
   scenes: StoryboardScene[];
 }
 
-type Stage = 'stage1' | 'stage2' | 'stage3' | 'storyboard' | 'cinematic' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator';
+type Stage = 'stage1' | 'stage2' | 'stage3' | 'storyboard' | 'cinematic' | 'frame-extractor' | 'bg-remover' | 'wm-remover' | 'audio-separator' | 'file-renamer';
 type CineTab = 'overview' | 'characters' | 'scenes' | 'video' | 'music' | 'voice';
 type Stage2SubPage = 'concept' | 'image' | 'video';
 
@@ -2537,6 +2543,785 @@ const fmtTime = (s: number) => {
   const sec = Math.floor(s % 60);
   const cs = Math.floor((s % 1) * 100);
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+};
+
+// --- File Renamer ---
+
+interface RenameFileEntry {
+  handle: FileSystemFileHandle;
+  originalName: string;
+  newName: string;
+  ext: string;
+  thumbnailUrl?: string;
+  objectUrl?: string;
+  isVideo: boolean;
+  status: 'pending' | 'renamed' | 'error';
+}
+
+const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+const VIDEO_EXTS = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv'];
+const MEDIA_EXTS = [...IMAGE_EXTS, ...VIDEO_EXTS];
+
+const FileRenamerContent = () => {
+  const [dirHandle, setDirHandle] = React.useState<FileSystemDirectoryHandle | null>(null);
+  const [files, setFiles] = React.useState<RenameFileEntry[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [prefix, setPrefix] = React.useState('');
+  const [suffix, setSuffix] = React.useState('');
+  const [useNumbering, setUseNumbering] = React.useState(false);
+  const [numberStart, setNumberStart] = React.useState(1);
+  const [findText, setFindText] = React.useState('');
+  const [replaceText, setReplaceText] = React.useState('');
+  const [applyingAll, setApplyingAll] = React.useState(false);
+  const [message, setMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [focusedIndex, setFocusedIndex] = React.useState(-1);
+  const [editingIndex, setEditingIndex] = React.useState(-1);
+  const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+  const cardRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  const gridRef = React.useRef<HTMLDivElement>(null);
+
+  // Restore card focus after re-renders (e.g. after rename)
+  React.useEffect(() => {
+    if (focusedIndex >= 0 && editingIndex === -1) {
+      const card = cardRefs.current[focusedIndex];
+      if (card && document.activeElement !== card) {
+        card.focus();
+      }
+    }
+  });
+
+  const getColCount = () => {
+    if (!gridRef.current || !gridRef.current.children.length) return 5;
+    const cols = window.getComputedStyle(gridRef.current).getPropertyValue('grid-template-columns').split(' ').length;
+    return cols || 5;
+  };
+
+  const navigateTo = (index: number) => {
+    if (index >= 0 && index < files.length) {
+      setFocusedIndex(index);
+      setEditingIndex(-1);
+      requestAnimationFrame(() => {
+        cardRefs.current[index]?.focus();
+        cardRefs.current[index]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  };
+
+  const enterEditMode = (index: number) => {
+    setEditingIndex(index);
+    setTimeout(() => {
+      const input = inputRefs.current[index];
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }, 0);
+  };
+
+  const exitEditMode = async (index: number, applyRename: boolean) => {
+    if (applyRename) {
+      const entry = files[index];
+      const fullNewName = entry.newName + '.' + entry.ext;
+      if (fullNewName !== entry.originalName && entry.status === 'pending') {
+        await renameSingleFile(index);
+      }
+    }
+    setEditingIndex(-1);
+    setFocusedIndex(index);
+    // Re-focus after React re-render
+    requestAnimationFrame(() => {
+      cardRefs.current[index]?.focus();
+    });
+  };
+
+  // Card-level keyboard: arrow navigation + Enter to edit
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, index: number) => {
+    if (editingIndex !== -1) return;
+    const cols = getColCount();
+    switch (e.key) {
+      case 'ArrowRight':
+        e.preventDefault();
+        if (index < files.length - 1) navigateTo(index + 1);
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (index > 0) navigateTo(index - 1);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (index + cols < files.length) navigateTo(index + cols);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (index - cols >= 0) navigateTo(index - cols);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        enterEditMode(index);
+        break;
+      case ' ':
+        e.preventDefault();
+        setPreviewFile(files[index]);
+        break;
+      case 'Escape':
+        setFocusedIndex(-1);
+        (e.target as HTMLElement).blur();
+        break;
+    }
+  };
+
+  // Input-level keyboard: Enter to apply + Escape to cancel
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    switch (e.key) {
+      case 'Enter':
+        e.preventDefault();
+        exitEditMode(index, true);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        exitEditMode(index, false);
+        break;
+    }
+  };
+
+  const getExt = (name: string) => {
+    const parts = name.split('.');
+    return parts.length > 1 ? parts.pop()!.toLowerCase() : '';
+  };
+
+  const getBaseName = (name: string) => {
+    const parts = name.split('.');
+    if (parts.length > 1) {
+      parts.pop();
+      return parts.join('.');
+    }
+    return name;
+  };
+
+  const [previewFile, setPreviewFile] = React.useState<RenameFileEntry | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const dragCounter = React.useRef(0);
+
+  const loadMediaUrl = async (handle: FileSystemFileHandle): Promise<string | undefined> => {
+    try {
+      const file = await handle.getFile();
+      return URL.createObjectURL(file);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const generateVideoThumbnail = (url: string): Promise<string | undefined> => {
+    return new Promise(resolve => {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.preload = 'metadata';
+      video.onloadeddata = () => {
+        video.currentTime = Math.min(1, video.duration / 4);
+      };
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 160;
+          canvas.height = 160;
+          const ctx = canvas.getContext('2d')!;
+          const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+          const w = video.videoWidth * scale;
+          const h = video.videoHeight * scale;
+          ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } catch {
+          resolve(undefined);
+        }
+      };
+      video.onerror = () => resolve(undefined);
+      setTimeout(() => resolve(undefined), 5000);
+      video.src = url;
+    });
+  };
+
+  const buildFileEntry = async (fileHandle: FileSystemFileHandle): Promise<RenameFileEntry | null> => {
+    const name = fileHandle.name;
+    const ext = getExt(name);
+    if (!MEDIA_EXTS.includes(ext)) return null;
+    const isVideo = VIDEO_EXTS.includes(ext);
+    const objectUrl = await loadMediaUrl(fileHandle);
+    let thumbnailUrl = objectUrl;
+    if (isVideo && objectUrl) {
+      const videoThumb = await generateVideoThumbnail(objectUrl);
+      thumbnailUrl = videoThumb || undefined;
+    }
+    return {
+      handle: fileHandle,
+      originalName: name,
+      newName: getBaseName(name),
+      ext,
+      thumbnailUrl,
+      objectUrl,
+      isVideo,
+      status: 'pending',
+    };
+  };
+
+  const loadFromDirectory = async (handle: FileSystemDirectoryHandle) => {
+    setDirHandle(handle);
+    setLoading(true);
+    setMessage(null);
+    const entries: RenameFileEntry[] = [];
+    for await (const [, entryHandle] of (handle as any).entries()) {
+      if (entryHandle.kind !== 'file') continue;
+      const entry = await buildFileEntry(entryHandle as FileSystemFileHandle);
+      if (entry) entries.push(entry);
+    }
+    entries.sort((a, b) => a.originalName.localeCompare(b.originalName));
+    setFiles(entries);
+    setLoading(false);
+  };
+
+  const selectFolder = async () => {
+    try {
+      const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+      await loadFromDirectory(handle);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        setMessage({ type: 'error', text: '폴더를 열 수 없습니다: ' + e.message });
+      }
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    const items = Array.from(e.dataTransfer.items);
+    // Collect all handle promises synchronously before any await
+    // (DataTransferItems become invalid after the sync portion of the handler)
+    const handlePromises = items
+      .map(item => (item as any).getAsFileSystemHandle?.() as Promise<FileSystemHandle> | undefined)
+      .filter(Boolean) as Promise<FileSystemHandle>[];
+
+    if (handlePromises.length > 0) {
+      const resolved = await Promise.all(handlePromises);
+      const handles = resolved.filter(Boolean);
+
+      // If a directory was dropped
+      const dirEntry = handles.find(h => h.kind === 'directory');
+      if (dirEntry) {
+        await loadFromDirectory(dirEntry as FileSystemDirectoryHandle);
+        return;
+      }
+      // Individual files dropped
+      setLoading(true);
+      setMessage(null);
+      setDirHandle(null);
+      const entries: RenameFileEntry[] = [];
+      for (const h of handles) {
+        if (h.kind !== 'file') continue;
+        const entry = await buildFileEntry(h as FileSystemFileHandle);
+        if (entry) entries.push(entry);
+      }
+      entries.sort((a, b) => a.originalName.localeCompare(b.originalName));
+      setFiles(entries);
+      setLoading(false);
+      if (entries.length === 0) {
+        setMessage({ type: 'error', text: '지원하는 이미지/동영상 파일이 없습니다.' });
+      }
+      return;
+    }
+    // Fallback: regular File objects (no rename capability)
+    setMessage({ type: 'error', text: '파일명 변경은 Chrome/Edge에서 폴더 또는 파일을 드래그하세요.' });
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current++;
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) { setIsDragging(false); dragCounter.current = 0; }
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const updateFileName = (index: number, newBaseName: string) => {
+    setFiles(prev => prev.map((f, i) => i === index ? { ...f, newName: newBaseName } : f));
+  };
+
+  const applyBatchTools = () => {
+    setFiles(prev => prev.map((f, i) => {
+      let baseName = getBaseName(f.originalName);
+      if (findText) {
+        baseName = baseName.split(findText).join(replaceText);
+      }
+      if (prefix) baseName = prefix + baseName;
+      if (suffix) baseName = baseName + suffix;
+      if (useNumbering) {
+        baseName = String(numberStart + i).padStart(3, '0') + '_' + baseName;
+      }
+      return { ...f, newName: baseName, status: 'pending' as const };
+    }));
+  };
+
+  const resetNames = () => {
+    setFiles(prev => prev.map(f => ({ ...f, newName: getBaseName(f.originalName), status: 'pending' as const })));
+    setPrefix('');
+    setSuffix('');
+    setUseNumbering(false);
+    setNumberStart(1);
+    setFindText('');
+    setReplaceText('');
+  };
+
+  const renameSingleFile = async (index: number) => {
+    const entry = files[index];
+    const fullNewName = entry.newName + '.' + entry.ext;
+    if (fullNewName === entry.originalName) return;
+    try {
+      // Release objectUrl and clear from DOM to unlock file
+      if (entry.objectUrl) URL.revokeObjectURL(entry.objectUrl);
+      setFiles(prev => prev.map((f, i) => i === index ? { ...f, objectUrl: undefined } : f));
+      await new Promise(r => requestAnimationFrame(r));
+      await (entry.handle as any).move(fullNewName);
+      // Reload objectUrl & thumbnail after rename
+      const newObjectUrl = await loadMediaUrl(entry.handle);
+      let newThumb = newObjectUrl;
+      if (entry.isVideo && newObjectUrl) {
+        newThumb = await generateVideoThumbnail(newObjectUrl) || undefined;
+      }
+      setFiles(prev => prev.map((f, i) => i === index ? { ...f, originalName: fullNewName, objectUrl: newObjectUrl, thumbnailUrl: newThumb, status: 'renamed' as const } : f));
+    } catch (e: any) {
+      // Try to restore objectUrl on failure
+      const restoredUrl = await loadMediaUrl(entry.handle).catch(() => undefined);
+      setFiles(prev => prev.map((f, i) => i === index ? { ...f, objectUrl: restoredUrl, status: 'error' as const } : f));
+      setMessage({ type: 'error', text: `"${entry.originalName}" 변경 실패: ${e.message}` });
+    }
+  };
+
+  const renameAll = async () => {
+    setApplyingAll(true);
+    setMessage(null);
+    // Release all objectUrls first to unlock files
+    setFiles(prev => prev.map(f => {
+      if (f.objectUrl) URL.revokeObjectURL(f.objectUrl);
+      return { ...f, objectUrl: undefined };
+    }));
+    // Wait for DOM to drop img/video src references
+    await new Promise(r => requestAnimationFrame(r));
+
+    let successCount = 0;
+    let errorCount = 0;
+    for (let i = 0; i < files.length; i++) {
+      const entry = files[i];
+      const fullNewName = entry.newName + '.' + entry.ext;
+      if (fullNewName === entry.originalName) {
+        successCount++;
+        continue;
+      }
+      try {
+        await (entry.handle as any).move(fullNewName);
+        const newObjectUrl = await loadMediaUrl(entry.handle);
+        let newThumb = newObjectUrl;
+        if (entry.isVideo && newObjectUrl) {
+          newThumb = await generateVideoThumbnail(newObjectUrl) || undefined;
+        }
+        setFiles(prev => prev.map((f, j) => j === i ? { ...f, originalName: fullNewName, objectUrl: newObjectUrl, thumbnailUrl: newThumb, status: 'renamed' as const } : f));
+        successCount++;
+      } catch (e: any) {
+        const restoredUrl = await loadMediaUrl(entry.handle).catch(() => undefined);
+        setFiles(prev => prev.map((f, j) => j === i ? { ...f, objectUrl: restoredUrl, status: 'error' as const } : f));
+        errorCount++;
+      }
+    }
+    setApplyingAll(false);
+    if (errorCount === 0) {
+      setMessage({ type: 'success', text: `${successCount}개 파일 이름이 변경되었습니다.` });
+    } else {
+      setMessage({ type: 'error', text: `${successCount}개 성공, ${errorCount}개 실패` });
+    }
+  };
+
+  const hasChanges = files.some(f => f.newName + '.' + f.ext !== f.originalName);
+
+  return (
+    <div
+      className="flex-1 flex flex-col min-h-0 p-3 md:p-6 gap-4 relative"
+      onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-warning/10 border-4 border-dashed border-warning rounded-xl flex items-center justify-center backdrop-blur-sm pointer-events-none">
+          <div className="text-center space-y-2">
+            <Download className="w-12 h-12 text-warning mx-auto animate-bounce" />
+            <p className="text-lg font-black text-warning">폴더 또는 파일을 놓으세요</p>
+            <p className="text-sm text-foreground/50">이미지 / 동영상 파일 지원</p>
+          </div>
+        </div>
+      )}
+      {/* Header */}
+      <div className="shrink-0 neo-card-static rounded-xl p-4 md:p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-warning/20 border-2 border-foreground flex items-center justify-center">
+              <FilePen className="w-5 h-5 text-warning" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-foreground uppercase">파일명 변경</h2>
+              <p className="text-xs text-foreground/60">로컬 폴더의 이미지/동영상 파일명을 일괄 변경합니다</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={selectFolder}
+            className="neo-btn neo-btn-warning px-4 py-2 rounded-lg text-sm font-bold border-3 border-foreground flex items-center gap-2"
+          >
+            <FolderOpen className="w-4 h-4" />
+            폴더 선택
+          </button>
+          {dirHandle && (
+            <div className="flex items-center gap-2 text-sm text-foreground/70 bg-foreground/5 px-3 py-1.5 rounded-lg border-2 border-foreground/20">
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span className="font-mono text-xs">{dirHandle.name}</span>
+              <span className="text-foreground/40">({files.length}개 파일)</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-foreground text-sm font-bold ${
+          message.type === 'success' ? 'bg-primary/20 text-primary' : 'bg-danger/20 text-danger'
+        }`}>
+          {message.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {message.text}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-warning" />
+          <span className="ml-2 text-sm text-foreground/60">파일 목록을 불러오는 중...</span>
+        </div>
+      )}
+
+      {/* Batch Tools */}
+      {files.length > 0 && !loading && (
+        <div className="shrink-0 neo-card-static rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <SlidersHorizontal className="w-4 h-4 text-warning" />
+            <h3 className="text-sm font-black text-foreground uppercase">일괄 변경 도구</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Prefix */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-foreground/60 uppercase flex items-center gap-1">
+                <Type className="w-3 h-3" /> 접두어
+              </label>
+              <input
+                type="text"
+                value={prefix}
+                onChange={e => setPrefix(e.target.value)}
+                placeholder="앞에 추가..."
+                className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
+              />
+            </div>
+            {/* Suffix */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-foreground/60 uppercase flex items-center gap-1">
+                <Type className="w-3 h-3" /> 접미어
+              </label>
+              <input
+                type="text"
+                value={suffix}
+                onChange={e => setSuffix(e.target.value)}
+                placeholder="뒤에 추가..."
+                className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
+              />
+            </div>
+            {/* Find */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-foreground/60 uppercase flex items-center gap-1">
+                <Search className="w-3 h-3" /> 찾기
+              </label>
+              <input
+                type="text"
+                value={findText}
+                onChange={e => setFindText(e.target.value)}
+                placeholder="찾을 텍스트..."
+                className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
+              />
+            </div>
+            {/* Replace */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-foreground/60 uppercase flex items-center gap-1">
+                <ArrowRightLeft className="w-3 h-3" /> 바꾸기
+              </label>
+              <input
+                type="text"
+                value={replaceText}
+                onChange={e => setReplaceText(e.target.value)}
+                placeholder="바꿀 텍스트..."
+                className="w-full px-2.5 py-1.5 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
+              />
+            </div>
+          </div>
+          {/* Numbering */}
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useNumbering}
+                onChange={e => setUseNumbering(e.target.checked)}
+                className="w-4 h-4 rounded border-2 border-foreground/30 accent-warning"
+              />
+              <span className="text-xs font-bold text-foreground/70 flex items-center gap-1">
+                <Hash className="w-3 h-3" /> 번호매기기
+              </span>
+            </label>
+            {useNumbering && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-foreground/50">시작번호:</span>
+                <input
+                  type="number"
+                  value={numberStart}
+                  onChange={e => setNumberStart(parseInt(e.target.value) || 1)}
+                  min={0}
+                  className="w-16 px-2 py-1 rounded-lg border-2 border-foreground/30 bg-background text-xs font-mono focus:border-warning focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+          {/* Batch action buttons */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={applyBatchTools}
+              className="neo-btn neo-btn-primary px-4 py-2 rounded-lg text-xs font-bold border-2 border-foreground flex items-center gap-1.5"
+            >
+              <Play className="w-3.5 h-3.5" />
+              미리보기 적용
+            </button>
+            <button
+              onClick={resetNames}
+              className="neo-btn px-4 py-2 rounded-lg text-xs font-bold border-2 border-foreground/30 hover:border-foreground/60 flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              초기화
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* File Grid */}
+      {files.length > 0 && !loading && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="shrink-0 flex items-center gap-3 mb-2 text-[10px] text-foreground/40 font-bold">
+            <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-foreground/10 border border-foreground/20 text-[9px]">Arrow</kbd> 이동</span>
+            <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-foreground/10 border border-foreground/20 text-[9px]">Enter</kbd> 편집/적용</span>
+            <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-foreground/10 border border-foreground/20 text-[9px]">Space</kbd> 미리보기</span>
+            <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-foreground/10 border border-foreground/20 text-[9px]">Esc</kbd> 취소</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div ref={gridRef} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+              {files.map((file, index) => {
+                const fullNewName = file.newName + '.' + file.ext;
+                const changed = fullNewName !== file.originalName;
+                const isFocused = focusedIndex === index;
+                const isEditing = editingIndex === index;
+                return (
+                  <div
+                    key={file.originalName + index}
+                    ref={el => { cardRefs.current[index] = el; }}
+                    tabIndex={0}
+                    onKeyDown={e => handleCardKeyDown(e, index)}
+                    onFocus={() => { if (editingIndex === -1) setFocusedIndex(index); }}
+                    className={`neo-card-static rounded-xl overflow-hidden flex flex-col transition-shadow outline-none ${
+                      isEditing ? 'ring-2 ring-primary shadow-lg' :
+                      isFocused ? 'ring-2 ring-warning shadow-lg' :
+                      file.status === 'renamed' ? 'ring-2 ring-primary/50' :
+                      file.status === 'error' ? 'ring-2 ring-danger/50' : ''
+                    }`}
+                    onClick={() => navigateTo(index)}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative w-full aspect-square bg-foreground/5 group overflow-hidden">
+                      {file.thumbnailUrl ? (
+                        <img src={file.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                      ) : file.isVideo ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Film className="w-10 h-10 text-foreground/20" />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-10 h-10 text-foreground/20" />
+                        </div>
+                      )}
+                      {/* Center preview button */}
+                      <button
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border-2 border-white/30 hover:scale-110 transition-all shadow-lg opacity-0 group-hover:opacity-100 z-10"
+                        onClick={e => { e.stopPropagation(); setPreviewFile(file); }}
+                        tabIndex={-1}
+                      >
+                        {file.isVideo ? (
+                          <Play className="w-5 h-5 text-white ml-0.5" />
+                        ) : (
+                          <ZoomIn className="w-5 h-5 text-white" />
+                        )}
+                      </button>
+                      {/* Status badge */}
+                      {file.status === 'renamed' && (
+                        <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow">
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
+                      {file.status === 'error' && (
+                        <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-danger flex items-center justify-center shadow">
+                          <AlertCircle className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
+                      {/* File type badge */}
+                      <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white uppercase">
+                        {file.ext}
+                      </div>
+                    </div>
+
+                    {/* File name editor */}
+                    <div className="p-2 space-y-1">
+                      <div className="text-[11px] text-foreground/50 font-mono truncate" title={file.originalName}>
+                        {file.originalName}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          ref={el => { inputRefs.current[index] = el; }}
+                          type="text"
+                          value={file.newName}
+                          onChange={e => updateFileName(index, e.target.value)}
+                          onKeyDown={e => handleInputKeyDown(e, index)}
+                          readOnly={!isEditing}
+                          tabIndex={-1}
+                          className={`flex-1 min-w-0 px-2 py-1.5 rounded border-2 text-xs font-mono focus:outline-none transition-colors ${
+                            isEditing ? 'border-primary bg-primary/5 focus:border-primary cursor-text' :
+                            changed ? 'border-warning bg-warning/5 cursor-default' : 'border-foreground/15 bg-background cursor-default'
+                          }`}
+                        />
+                        {changed && file.status === 'pending' && (
+                          <button
+                            onClick={() => renameSingleFile(index)}
+                            className="neo-btn neo-btn-warning shrink-0 w-6 h-6 rounded border-2 border-foreground flex items-center justify-center"
+                            title="이 파일 이름 변경"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom: Rename All button */}
+          {hasChanges && (
+            <div className="shrink-0 pt-3 mt-2 border-t-2 border-foreground/10">
+              <button
+                onClick={renameAll}
+                disabled={applyingAll}
+                className="neo-btn neo-btn-danger w-full px-4 py-3 rounded-xl text-sm font-black border-3 border-foreground flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {applyingAll ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    변경 중...
+                  </>
+                ) : (
+                  <>
+                    <FilePen className="w-4 h-4" />
+                    전체 적용 ({files.filter(f => f.newName + '.' + f.ext !== f.originalName).length}개 파일)
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && files.length === 0 && dirHandle && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-2">
+            <ImageIcon className="w-12 h-12 text-foreground/20 mx-auto" />
+            <p className="text-sm text-foreground/40 font-bold">이미지/동영상 파일이 없습니다</p>
+          </div>
+        </div>
+      )}
+
+      {/* Initial state */}
+      {!loading && !dirHandle && files.length === 0 && (
+        <div className="flex-1 flex items-center justify-center border-3 border-dashed border-foreground/15 rounded-xl">
+          <div className="text-center space-y-3">
+            <FolderOpen className="w-16 h-16 text-foreground/15 mx-auto" />
+            <p className="text-foreground/40 font-bold">폴더를 선택하거나 여기에 드래그하세요</p>
+            <p className="text-xs text-foreground/30">폴더 또는 이미지/동영상 파일을 드래그 & 드롭할 수 있습니다</p>
+            <p className="text-[11px] text-foreground/25">Chrome / Edge 브라우저 지원</p>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setPreviewFile(null)}
+          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setPreviewFile(null); } }}
+          tabIndex={0}
+          ref={el => el?.focus()}
+        >
+          <div
+            className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setPreviewFile(null)}
+              className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full bg-foreground text-background flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Content */}
+            {previewFile.isVideo ? (
+              <video
+                src={previewFile.objectUrl}
+                controls
+                autoPlay
+                className="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl bg-black"
+              />
+            ) : (
+              <img
+                src={previewFile.objectUrl || previewFile.thumbnailUrl}
+                alt={previewFile.originalName}
+                className="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl object-contain bg-black"
+              />
+            )}
+
+            {/* File name */}
+            <div className="mt-3 px-4 py-2 rounded-lg bg-black/60 text-white text-sm font-mono">
+              {previewFile.originalName}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const AudioSeparatorContent = () => {
@@ -7301,6 +8086,19 @@ const App = () => {
               <Music className="w-4 h-4 text-danger" />
               <span className="flex-1 text-left">음악만들기</span>
             </a>
+            {/* 파일명변경 */}
+            <button
+              onClick={() => setCurrentStage('file-renamer')}
+              className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                currentStage === 'file-renamer'
+                  ? 'neo-btn neo-btn-warning border-3 border-foreground shadow-neo-sm'
+                  : 'neo-btn border-3 border-foreground/30 hover:border-foreground/60'
+              }`}
+            >
+              {currentStage === 'file-renamer' && <div className="w-1.5 h-4 rounded-full bg-warning" />}
+              <FilePen className="w-4 h-4 text-warning" />
+              <span className="flex-1 text-left">파일명변경</span>
+            </button>
             {/* 프레임추출기 */}
             <button
               onClick={() => setCurrentStage('frame-extractor')}
@@ -7555,7 +8353,10 @@ const App = () => {
 
         {/* RIGHT PANEL: Editor & Output */}
         <main className="flex-1 flex flex-col min-w-0 relative">
-          {currentStage === 'audio-separator' ? (
+          {currentStage === 'file-renamer' ? (
+          /* File Renamer */
+          <FileRenamerContent />
+          ) : currentStage === 'audio-separator' ? (
           /* Audio Separator */
           <AudioSeparatorContent />
           ) : currentStage === 'wm-remover' ? (
